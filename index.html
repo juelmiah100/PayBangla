@@ -64,7 +64,6 @@
 </head>
 <body class="bg-gray-100 dark:bg-zinc-950 text-gray-900 dark:text-zinc-100 min-h-screen transition-colors duration-200 antialiased font-sans flex flex-col justify-center">
 
-<!-- FIXED CONTAINER (PERMANENT BOTTOM NAV LOCK) -->
 <div class="max-w-md mx-auto h-screen w-full bg-white dark:bg-zinc-900 shadow-2xl flex flex-col justify-between relative overflow-hidden border-x border-gray-200 dark:border-zinc-800">
 
     <!-- Top Header Bar -->
@@ -91,10 +90,10 @@
         </div>
     </div>
 
-    <!-- Main Dynamic Screen Viewport (Scrolls Only Middle Content) -->
+    <!-- Main Dynamic Screen Viewport -->
     <main class="flex-1 overflow-y-auto custom-scrollbar p-4" id="main-content" data-active-screen="dashboard"></main>
 
-    <!-- Bottom Navigation Bar (LOCKED FIX AT BOTTOM) -->
+    <!-- Bottom Navigation Bar (FIXED) -->
     <nav id="bottom-nav" class="hidden flex-shrink-0 bg-white dark:bg-zinc-900 border-t border-gray-200 dark:border-zinc-800 py-2 flex justify-around items-center text-gray-600 dark:text-zinc-400 z-30 shadow-lg">
         <button onclick="switchScreen('dashboard')" class="flex flex-col items-center gap-0.5 text-emerald-600 dark:text-emerald-400" id="nav-home">
             <i class="fa-solid fa-house text-lg"></i>
@@ -178,7 +177,6 @@
         }
     };
 
-    // Shared Storage Key with Admin Panel
     const STORAGE_KEY = 'paybangla_user_db_v15';
 
     // --- Global Application State ---
@@ -240,7 +238,6 @@
         { id: 'freefire', name: 'Free Fire', icon: 'fa-gem', color: '#FF5722' }
     ];
 
-    // --- Master Data Sync Functions ---
     function loadMasterState() {
         const raw = localStorage.getItem(STORAGE_KEY);
         if (raw) {
@@ -316,7 +313,46 @@
         updateP2PUnreadDot();
     }
 
-    // CHECK ADMIN FEATURE TOGGLE WITH "COMING SOON / কামিং সুন" POPUP
+    // 🔥 REALTIME FIREBASE CLOUD LISTENER (SYNC WITH ADMIN PANEL 100%)
+    function startRealtimeCloudSync() {
+        if (isFirebaseAvailable && db) {
+            // Listen for Admin Button On/Off, Rates, and Banners
+            db.collection('system').doc('global_config').onSnapshot((doc) => {
+                if (doc.exists) {
+                    const data = doc.data();
+                    if (data.featureFlags) state.featureFlags = data.featureFlags;
+                    if (data.bannerNotice) state.bannerNotice = data.bannerNotice;
+                    if (data.usdtRates) state.usdtRates = data.usdtRates;
+                    if (data.paymentGateways) state.paymentGateways = data.paymentGateways;
+                    if (data.gamePackages) state.gamePackages = data.gamePackages;
+                    
+                    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+                    const bText = document.getElementById('banner-text');
+                    if (bText && state.bannerNotice) bText.innerText = state.bannerNotice;
+
+                    if (state.currentUser) {
+                        const activeScreen = document.getElementById('main-content').getAttribute('data-active-screen') || 'dashboard';
+                        switchScreen(activeScreen, false);
+                    }
+                }
+            });
+
+            // Listen for Current User Balance Updates from Admin
+            if (state.userProfile && state.userProfile.id) {
+                db.collection('users').doc(state.userProfile.id).onSnapshot((doc) => {
+                    if (doc.exists) {
+                        state.userProfile = { id: doc.id, ...doc.data() };
+                        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+                        if (state.currentUser) {
+                            const activeScreen = document.getElementById('main-content').getAttribute('data-active-screen') || 'dashboard';
+                            switchScreen(activeScreen, false);
+                        }
+                    }
+                });
+            }
+        }
+    }
+
     function checkFeatureFlag(flagKey, serviceName) {
         if (state.featureFlags && state.featureFlags[flagKey] === false) {
             showModal("কামিং সুন (Coming Soon)", `
@@ -352,7 +388,7 @@
         }
     }
 
-    // INSTANT FAST INIT (0ms Render)
+    // INSTANT APP INITIALIZATION
     function initApp() {
         loadMasterState();
 
@@ -375,10 +411,11 @@
                 }
             });
         }
+        
         applyLanguage();
+        startRealtimeCloudSync();
     }
 
-    // Realtime Sync from Admin Panel Storage
     window.addEventListener('storage', (e) => {
         if (e.key === STORAGE_KEY) {
             loadMasterState();
@@ -389,7 +426,7 @@
         }
     });
 
-    // Mobile Hardware Back Button Support
+    // Mobile Back Button Support
     window.onpopstate = function(event) {
         const modal = document.getElementById('modal-container');
         if (modal && !modal.classList.contains('hidden')) {
@@ -527,7 +564,7 @@
         }
     }
 
-    // INSTANT FAST LOGIN (0ms Delay)
+    // INSTANT LOGIN (0ms Delay)
     async function loginWithEmail() {
         const email = document.getElementById('login-email').value.trim().toLowerCase();
         const password = document.getElementById('login-password').value;
@@ -678,7 +715,7 @@
                 </div>
             ` : ''}
 
-            <!-- ACTION BUTTONS GRID WITH COMING SOON OVERLAY SUPPORT -->
+            <!-- ACTION BUTTONS GRID WITH COMING SOON OVERLAY -->
             <div class="mb-5">
                 <h3 class="text-xs font-black text-gray-400 dark:text-zinc-500 uppercase tracking-widest mb-3">প্রধান সার্ভিসসমূহ</h3>
                 
@@ -1770,7 +1807,6 @@
         if (isNaN(amt) || amt <= 0) return alert("সঠিক টাকার পরিমাণ দিন!");
         if (amt > state.userProfile.balance) return alert("আপনার ওয়ালেটে পর্যাপ্ত ব্যালেন্স নেই!");
 
-        // Find recipient in DB by User ID, Phone, or Email
         const recipient = state.allUsers.find(u => 
             u.id.toLowerCase() === target.toLowerCase() || 
             (u.phone && u.phone === target) ||
@@ -1785,11 +1821,9 @@
             return alert("নিজের একাউন্টে সেন্ড মানি করা সম্ভব নয়!");
         }
 
-        // Deduct from Sender & Credit Recipient
         state.userProfile.balance -= amt;
         recipient.balance = (recipient.balance || 0) + amt;
 
-        // Record Transaction
         state.transactions.unshift({ 
             id: "TXN_" + Date.now().toString().slice(-4), 
             title: `টাকা পাঠানো হয়েছে (${recipient.name})`, 
@@ -1835,7 +1869,6 @@
             </div>`;
     }
 
-    // Modal Utility Helpers
     function showModal(title, bodyHtml) {
         document.getElementById('modal-title').innerText = title;
         document.getElementById('modal-body').innerHTML = bodyHtml;
