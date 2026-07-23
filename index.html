@@ -1,0 +1,1785 @@
+<!DOCTYPE html>
+<html lang="bn" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>PayBangla - Digital Wallet & Services</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: { light: '#006A4E', dark: '#00E676' },
+                        secondary: { light: '#F4F6F9', dark: '#121212' },
+                        p2p: '#3B82F6'
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Firebase Compat SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore-compat.js"></script>
+
+    <style>
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background-color: rgba(156,163,175,0.4); border-radius: 4px; }
+        .grid-btn {
+            transition: transform 0.1s ease-out, background-color 0.1s ease-out;
+            cursor: pointer;
+            border: 1px solid rgba(229, 231, 235, 0.8);
+            will-change: transform;
+        }
+        .dark .grid-btn { border-color: rgba(39, 39, 42, 0.8); }
+        .grid-btn:active { transform: scale(0.96); }
+        .midas-card {
+            transition: all 0.15s ease;
+            cursor: pointer;
+            border: 2px solid transparent;
+        }
+        .midas-card.selected {
+            border-color: #006A4E;
+            background: rgba(0, 106, 78, 0.08);
+        }
+        .dark .midas-card.selected {
+            border-color: #00E676;
+            background: rgba(0, 230, 118, 0.12);
+        }
+        .chat-bubble-me { background: #006A4E; color: white; border-radius: 16px 16px 2px 16px; }
+        .chat-bubble-other { background: #E5E7EB; color: #111827; border-radius: 16px 16px 16px 2px; }
+        .dark .chat-bubble-other { background: #27272A; color: #F9FAFB; }
+        @keyframes ticker {
+            0% { transform: translate3d(100%, 0, 0); }
+            100% { transform: translate3d(-100%, 0, 0); }
+        }
+        .ticker-wrap { overflow: hidden; white-space: nowrap; }
+        .ticker-move { display: inline-block; animation: ticker 25s linear infinite; }
+    </style>
+</head>
+<body class="bg-gray-100 dark:bg-zinc-950 text-gray-900 dark:text-zinc-100 min-h-screen transition-colors duration-200 antialiased font-sans">
+
+<div class="max-w-md mx-auto min-h-screen bg-white dark:bg-zinc-900 shadow-2xl flex flex-col justify-between relative overflow-hidden pb-16 border-x border-gray-200 dark:border-zinc-800">
+
+    <!-- Top Header Bar -->
+    <header id="app-header" class="bg-emerald-800 dark:bg-emerald-950 text-white px-4 py-3 flex justify-between items-center z-20 sticky top-0 shadow-md">
+        <div class="flex items-center gap-2">
+            <i class="fa-solid fa-wallet text-xl text-emerald-400"></i>
+            <span class="font-black tracking-wider text-lg">PayBangla</span>
+        </div>
+        <div class="flex items-center gap-2">
+            <button onclick="toggleLanguage()" class="text-xs bg-emerald-700 dark:bg-emerald-900/80 hover:bg-emerald-600 px-2.5 py-1 rounded-lg font-bold text-emerald-100 transition border border-emerald-600/30">
+                <span id="lang-btn-text">English</span>
+            </button>
+            <button onclick="toggleDarkMode()" class="p-1.5 rounded-lg text-emerald-100 hover:bg-emerald-700 transition" aria-label="Toggle Dark Mode">
+                <i class="fa-solid fa-circle-half-stroke"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- App Dynamic Banner / Ticker -->
+    <div id="app-banner-container" class="bg-emerald-900 text-amber-300 text-[11px] font-bold py-1.5 px-3 border-b border-emerald-700/50 flex items-center gap-2">
+        <i class="fa-solid fa-bullhorn text-amber-400 animate-pulse"></i>
+        <div class="ticker-wrap flex-1">
+            <div id="banner-text" class="ticker-move">🔥 PayBangla ওয়ালেটে স্বাগতম! ইনস্ট্যান্ট P2P ট্রেডিং, ইউএসডিটি বাই-সেল ও গেম টপ-আপ উপভোগ করুন।</div>
+        </div>
+    </div>
+
+    <!-- Main Dynamic Screen Viewport -->
+    <main class="flex-grow p-4 overflow-y-auto custom-scrollbar" id="main-content" data-active-screen="dashboard"></main>
+
+    <!-- Bottom Navigation Bar -->
+    <nav id="bottom-nav" class="hidden absolute bottom-0 left-0 right-0 bg-white dark:bg-zinc-900 border-t border-gray-200 dark:border-zinc-800 py-2 flex justify-around items-center text-gray-600 dark:text-zinc-400 z-20 shadow-lg">
+        <button onclick="switchScreen('dashboard')" class="flex flex-col items-center gap-0.5 text-emerald-600 dark:text-emerald-400" id="nav-home">
+            <i class="fa-solid fa-house text-lg"></i>
+            <span class="text-[10px] font-bold" data-translate="nav_home">হোম</span>
+        </button>
+        <button onclick="openP2PTradingModal()" class="flex flex-col items-center gap-0.5 text-blue-600 dark:text-blue-400 font-black relative">
+            <i class="fa-solid fa-users-between-lines text-lg"></i>
+            <span class="text-[10px] font-black">P2P মার্কেট</span>
+            <span id="p2p-nav-unread-dot" class="hidden absolute -top-1 right-2 w-2.5 h-2.5 bg-red-500 rounded-full animate-ping"></span>
+        </button>
+        <button onclick="openUSDTModal()" class="flex flex-col items-center gap-0.5 text-amber-500 hover:text-amber-400 font-black">
+            <i class="fa-solid fa-right-left text-lg"></i>
+            <span class="text-[10px] font-black">ট্রেড USDT</span>
+        </button>
+        <button onclick="switchScreen('services')" class="flex flex-col items-center gap-0.5 hover:text-emerald-500" id="nav-services">
+            <i class="fa-solid fa-border-all text-lg"></i>
+            <span class="text-[10px] font-bold" data-translate="nav_services">সার্ভিস</span>
+        </button>
+        <button onclick="switchScreen('settings')" class="flex flex-col items-center gap-0.5 hover:text-emerald-500" id="nav-settings">
+            <i class="fa-solid fa-gear text-lg"></i>
+            <span class="text-[10px] font-bold" data-translate="nav_settings">সেটিংস</span>
+        </button>
+    </nav>
+
+    <!-- Modal Shell -->
+    <div id="modal-container" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-end justify-center transition-opacity">
+        <div class="bg-white dark:bg-zinc-900 w-full max-w-md rounded-t-3xl p-6 transition-transform transform translate-y-0 shadow-2xl max-h-[88vh] overflow-y-auto border-t border-gray-200 dark:border-zinc-800">
+            <div class="flex justify-between items-center mb-4 border-b border-gray-100 dark:border-zinc-800 pb-3">
+                <h3 id="modal-title" class="text-base font-extrabold text-gray-900 dark:text-zinc-100">Modal Title</h3>
+                <button onclick="closeModal()" class="p-1.5 rounded-full text-gray-400 hover:bg-gray-100 dark:hover:bg-zinc-800 transition"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <div id="modal-body" class="space-y-4"></div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    // --- Firebase Setup ---
+    const firebaseConfig = {
+        apiKey: "AIzaSyC02ncmc2-7-VULg84bSBT7nMcsoRmBg9Y",
+        authDomain: "paybangla-84142.firebaseapp.com",
+        databaseURL: "https://paybangla-84142-default-rtdb.firebaseio.com",
+        projectId: "paybangla-84142",
+        storageBucket: "paybangla-84142.firebasestorage.app",
+        messagingSenderId: "856783859136",
+        appId: "1:856783859136:web:c795d3c0de4925e1846c25"
+    };
+
+    let isFirebaseAvailable = false;
+    let auth = null;
+    let db = null;
+
+    try {
+        firebase.initializeApp(firebaseConfig);
+        auth = firebase.auth();
+        db = firebase.firestore();
+        isFirebaseAvailable = true;
+    } catch (e) {
+        console.warn("Operating in Local State storage mode.");
+    }
+
+    const translations = {
+        bn: {
+            nav_home: "হোম", nav_transactions: "লেনদেন", nav_services: "সার্ভিস", nav_settings: "সেটিংস",
+            welcome_back: "স্বাগতম", login_subtitle: "পে-বাংলা ডিজিটাল ওয়ালেটে নিরাপদে প্রবেশ করুন।",
+            balance_title: "মেইন ওয়ালেট ব্যালেন্স", send_money: "টাকা পাঠান", add_money: "ডিপোজিট",
+            withdraw: "ক্যাশ আউট", receive: "টাকা আনুন", mobile_recharge: "মোবাইল রিচার্জ",
+            gaming_store: "গেম টপ-আপ", data_pack: "ডাটা প্যাক", recent_transactions: "সাম্প্রতিক লেনদেন সমূহ",
+            register: "রেজিস্ট্রেশন", login: "লগইন", email: "ইমেইল অ্যাড্রেস", password: "পাসওয়ার্ড", name: "পূর্ণ নাম",
+            phone: "মোবাইল নম্বর", logout: "লগআউট করুন", no_account: "অ্যাকাউন্ট নেই?", have_account: "ইতিমধ্যে অ্যাকাউন্ট আছে?"
+        },
+        en: {
+            nav_home: "Home", nav_transactions: "History", nav_services: "Services", nav_settings: "Settings",
+            welcome_back: "Welcome Back", login_subtitle: "Access PayBangla digital wallet securely.",
+            balance_title: "Main Wallet Balance", send_money: "Send Money", add_money: "Deposit",
+            withdraw: "Cash Out", receive: "Receive", mobile_recharge: "Recharge",
+            gaming_store: "Game Top-Up", data_pack: "Data Package", recent_transactions: "Recent History",
+            register: "Register", login: "Login", email: "Email Address", password: "Password", name: "Full Name",
+            phone: "Mobile Number", logout: "Log Out", no_account: "Don't have an account?", have_account: "Already have an account?"
+        }
+    };
+
+    const STORAGE_KEY = 'paybangla_user_db_v15';
+
+    // --- Global Application State ---
+    let state = {
+        currentLanguage: 'bn',
+        currentUser: null,
+        userProfile: null,
+        balanceVisibility: true,
+        selectedOperator: 'gp',
+        selectedGame: 'pubg',
+        selectedGamePkg: null,
+        usdtRates: { buyRate: 122.50, sellRate: 120.00 },
+        adminDepositWallet: "01700000000 (bKash/Nagad Personal)",
+        adminUSDTWallet: "T9xY1zA82kL90pM29qR1S83tU0vW",
+        bannerNotice: "🔥 PayBangla ওয়ালেটে স্বাগতম! ইনস্ট্যান্ট P2P ট্রেডিং, ইউএসডিটি বাই-সেল ও গেম টপ-আপ উপভোগ করুন।",
+        featureFlags: {
+            p2pTrade: true,
+            usdtTrade: true,
+            deposit: true,
+            withdraw: true,
+            gaming: true,
+            recharge: true,
+            dataPack: true,
+            sendMoney: true
+        },
+        paymentGateways: [
+            { id: "GW1", name: "bKash Personal", number: "01700000000", type: "bKash", instructions: "বিকাশ সেন্ড মানি করুন।" },
+            { id: "GW2", name: "Nagad Personal", number: "01800000000", type: "Nagad", instructions: "নগদ সেন্ড মানি করুন।" }
+        ],
+        gamePackages: {
+            pubg: [{ id: "p1", name: "60 UC", price: 88 }, { id: "p2", name: "325 UC", price: 420 }],
+            freefire: [{ id: "ff1", name: "115 Diamonds", price: 80 }]
+        },
+        dataPackages: {
+            gp: [{ id: "gp1", name: "1.5 GB (3 দিন)", price: 48 }],
+            bl: [{ id: "bl1", name: "2 GB (7 দিন)", price: 57 }],
+            robi: [{ id: "rb1", name: "3 GB (3 দিন)", price: 68 }],
+            teletalk: [{ id: "tt1", name: "1 GB (30 দিন)", price: 30 }]
+        },
+        customOffers: [
+            { id: "off1", title: "১০০% ক্যাশব্যাক অফার", desc: "প্রথম ১০০০ টাকা ডিপোজিটে ৫০ টাকা ইনস্ট্যান্ট ক্যাশব্যাক!", active: true }
+        ],
+        p2pAds: [],
+        p2pTrades: [],
+        allUsers: [],
+        pendingRequests: [],
+        transactions: []
+    };
+
+    const operators = [
+        { id: 'gp', name: 'Grameenphone', color: '#1E90FF', prefix: '017' },
+        { id: 'bl', name: 'Banglalink', color: '#F58025', prefix: '019' },
+        { id: 'robi', name: 'Robi', color: '#E31E24', prefix: '018' },
+        { id: 'teletalk', name: 'Teletalk', color: '#00A651', prefix: '015' }
+    ];
+
+    const games = [
+        { id: 'pubg', name: 'PUBG Mobile', icon: 'fa-gun', color: '#F0A500' },
+        { id: 'freefire', name: 'Free Fire', icon: 'fa-gem', color: '#FF5722' }
+    ];
+
+    // --- Master Data Sync Functions ---
+    function loadMasterState() {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) {
+            try {
+                const parsed = JSON.parse(raw);
+                if (parsed.allUsers && parsed.allUsers.length > 0) state.allUsers = parsed.allUsers;
+                if (parsed.userProfile) state.userProfile = parsed.userProfile;
+                if (parsed.pendingRequests) state.pendingRequests = parsed.pendingRequests;
+                if (parsed.usdtRates) state.usdtRates = parsed.usdtRates;
+                if (parsed.paymentGateways) state.paymentGateways = parsed.paymentGateways;
+                if (parsed.gamePackages) state.gamePackages = parsed.gamePackages;
+                if (parsed.dataPackages) state.dataPackages = parsed.dataPackages;
+                if (parsed.p2pAds) state.p2pAds = parsed.p2pAds;
+                if (parsed.p2pTrades) state.p2pTrades = parsed.p2pTrades;
+                if (parsed.transactions) state.transactions = parsed.transactions;
+                if (parsed.currentLanguage) state.currentLanguage = parsed.currentLanguage;
+                if (parsed.bannerNotice) state.bannerNotice = parsed.bannerNotice;
+                if (parsed.featureFlags) state.featureFlags = parsed.featureFlags;
+                if (parsed.customOffers) state.customOffers = parsed.customOffers;
+            } catch (e) { console.error("Load error", e); }
+        }
+
+        if (state.userProfile) {
+            const updatedUser = state.allUsers.find(u => 
+                u.id === state.userProfile.id || 
+                (u.email && state.userProfile.email && u.email.toLowerCase() === state.userProfile.email.toLowerCase())
+            );
+            if (updatedUser) {
+                state.userProfile = { ...updatedUser };
+            }
+        }
+
+        const bText = document.getElementById('banner-text');
+        if (bText && state.bannerNotice) bText.innerText = state.bannerNotice;
+
+        updateP2PUnreadDot();
+    }
+
+    function saveMasterState() {
+        if (state.userProfile && state.userProfile.id) {
+            const idx = state.allUsers.findIndex(u => 
+                u.id === state.userProfile.id || 
+                (u.email && state.userProfile.email && u.email.toLowerCase() === state.userProfile.email.toLowerCase())
+            );
+            if (idx !== -1) {
+                state.allUsers[idx] = { ...state.userProfile };
+            } else {
+                state.allUsers.push({ ...state.userProfile });
+            }
+        }
+
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({
+            allUsers: state.allUsers,
+            userProfile: state.userProfile,
+            pendingRequests: state.pendingRequests,
+            usdtRates: state.usdtRates,
+            paymentGateways: state.paymentGateways,
+            gamePackages: state.gamePackages,
+            dataPackages: state.dataPackages,
+            p2pAds: state.p2pAds,
+            p2pTrades: state.p2pTrades,
+            transactions: state.transactions,
+            currentLanguage: state.currentLanguage,
+            bannerNotice: state.bannerNotice,
+            featureFlags: state.featureFlags,
+            customOffers: state.customOffers
+        }));
+
+        if (isFirebaseAvailable && db && state.userProfile && state.userProfile.id) {
+            db.collection('users').doc(state.userProfile.id).set(state.userProfile, { merge: true }).catch(err => console.warn(err));
+        }
+
+        updateP2PUnreadDot();
+    }
+
+    function checkFeatureFlag(flagKey, serviceName) {
+        if (state.featureFlags && state.featureFlags[flagKey] === false) {
+            alert(`দুঃখিত! ${serviceName} সার্ভিসটি এডমিন সাময়িকভাবে বন্ধ রেখেছেন।`);
+            return false;
+        }
+        return true;
+    }
+
+    function updateP2PUnreadDot() {
+        if (!state.userProfile) return;
+        const unreadTradeExists = state.p2pTrades.some(t => 
+            (t.buyerId === state.userProfile.id || t.sellerId === state.userProfile.id) &&
+            t.lastSenderId && t.lastSenderId !== state.userProfile.id && t.isSeen === false
+        );
+
+        const dot = document.getElementById('p2p-nav-unread-dot');
+        if (dot) {
+            if (unreadTradeExists) dot.classList.remove('hidden');
+            else dot.classList.add('hidden');
+        }
+    }
+
+    // INSTANT FAST INIT (0 Millisecond Render)
+    function initApp() {
+        loadMasterState();
+
+        // Immediate Instant UI Render from Local Memory
+        if (state.userProfile) {
+            state.currentUser = { uid: state.userProfile.id, email: state.userProfile.email };
+            switchScreen('dashboard');
+        } else {
+            renderLoginScreen();
+        }
+
+        // Non-blocking background firebase sync
+        if (isFirebaseAvailable && auth) {
+            auth.onAuthStateChanged(async (user) => {
+                if (user) {
+                    state.currentUser = user;
+                    const doc = await db.collection('users').doc(user.uid).get();
+                    if (doc.exists) {
+                        state.userProfile = { id: user.uid, ...doc.data() };
+                    }
+                    saveMasterState();
+                }
+            });
+        }
+        applyLanguage();
+    }
+
+    window.addEventListener('storage', (e) => {
+        if (e.key === STORAGE_KEY) {
+            loadMasterState();
+            if (state.currentUser) {
+                const activeScreen = document.getElementById('main-content').getAttribute('data-active-screen') || 'dashboard';
+                switchScreen(activeScreen);
+            }
+        }
+    });
+
+    function applyLanguage() {
+        document.getElementById('lang-btn-text').innerText = state.currentLanguage === 'en' ? 'বাংলা' : 'English';
+        document.querySelectorAll('[data-translate]').forEach(el => {
+            const key = el.getAttribute('data-translate');
+            if (translations[state.currentLanguage][key]) {
+                el.innerText = translations[state.currentLanguage][key];
+            }
+        });
+    }
+
+    function toggleLanguage() {
+        state.currentLanguage = state.currentLanguage === 'en' ? 'bn' : 'en';
+        saveMasterState();
+        applyLanguage();
+        if (state.currentUser) {
+            const currentScreen = document.getElementById('main-content').getAttribute('data-active-screen') || 'dashboard';
+            switchScreen(currentScreen);
+        } else {
+            renderLoginScreen();
+        }
+    }
+
+    function toggleDarkMode() {
+        document.documentElement.classList.toggle('dark');
+    }
+
+    // High performance UI Screen Switcher
+    function switchScreen(screenName) {
+        if (!state.currentUser) { renderLoginScreen(); return; }
+        const mainContent = document.getElementById('main-content');
+        const bottomNav = document.getElementById('bottom-nav');
+        
+        mainContent.setAttribute('data-active-screen', screenName);
+        bottomNav.classList.remove('hidden');
+
+        document.querySelectorAll('#bottom-nav button').forEach(b => {
+            b.classList.remove('text-emerald-600', 'dark:text-emerald-400');
+            b.classList.add('text-gray-600', 'dark:text-zinc-400');
+        });
+
+        const navMap = { 'dashboard': 'nav-home', 'transactions': 'nav-tx', 'services': 'nav-services', 'settings': 'nav-settings' };
+        if (navMap[screenName]) {
+            const btn = document.getElementById(navMap[screenName]);
+            if (btn) { btn.classList.add('text-emerald-600', 'dark:text-emerald-400'); btn.classList.remove('text-gray-600', 'dark:text-zinc-400'); }
+        }
+
+        switch (screenName) {
+            case 'dashboard': renderDashboard(); break;
+            case 'transactions': renderTransactions(); break;
+            case 'services': renderServices(); break;
+            case 'settings': renderSettings(); break;
+            default: renderDashboard();
+        }
+    }
+
+    // --- Authentication Engine ---
+    function renderLoginScreen() {
+        document.getElementById('bottom-nav').classList.add('hidden');
+        const mainContent = document.getElementById('main-content');
+        const t = translations[state.currentLanguage];
+        mainContent.innerHTML = `
+            <div class="flex flex-col items-center justify-center py-8">
+                <div class="w-20 h-20 bg-emerald-700 rounded-2xl flex items-center justify-center text-white text-3xl shadow-lg mb-3">
+                    <i class="fa-solid fa-wallet"></i>
+                </div>
+                <h2 class="text-2xl font-black text-emerald-800 dark:text-emerald-400 text-center mb-1">PayBangla</h2>
+                <p class="text-xs text-gray-500 dark:text-zinc-400 text-center px-4 mb-8 font-medium">${t.login_subtitle}</p>
+                <div class="w-full space-y-4">
+                    <div id="login-form" class="space-y-4">
+                        <div>
+                            <label class="block text-xs font-bold text-gray-500 mb-1 uppercase tracking-wider">${t.email}</label>
+                            <input type="email" id="login-email" placeholder="name@domain.com" class="w-full bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 py-3.5 px-4 rounded-xl text-sm font-semibold focus:outline-none focus:border-emerald-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-gray-500 mb-1 uppercase tracking-wider">${t.password}</label>
+                            <input type="password" id="login-password" placeholder="••••••••" class="w-full bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 py-3.5 px-4 rounded-xl text-sm font-semibold focus:outline-none focus:border-emerald-500">
+                        </div>
+                        <button onclick="loginWithEmail()" class="w-full bg-emerald-700 hover:bg-emerald-600 text-white font-extrabold py-4 rounded-xl text-xs uppercase tracking-wider shadow-lg transition-all">${t.login}</button>
+                    </div>
+                    <div id="register-form" class="hidden space-y-4">
+                        <div>
+                            <label class="block text-xs font-bold text-gray-500 mb-1 uppercase tracking-wider">${t.name}</label>
+                            <input type="text" id="reg-name" placeholder="রহিম উদ্দিন" class="w-full bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 py-3 px-4 rounded-xl text-sm font-semibold">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-gray-500 mb-1 uppercase tracking-wider">${t.email}</label>
+                            <input type="email" id="reg-email" placeholder="user@domain.com" class="w-full bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 py-3 px-4 rounded-xl text-sm font-semibold">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-gray-500 mb-1 uppercase tracking-wider">${t.phone}</label>
+                            <input type="tel" id="reg-phone" placeholder="01700000000" class="w-full bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 py-3 px-4 rounded-xl text-sm font-semibold">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-gray-500 mb-1 uppercase tracking-wider">${t.password}</label>
+                            <input type="password" id="reg-password" placeholder="••••••••" class="w-full bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 py-3 px-4 rounded-xl text-sm font-semibold">
+                        </div>
+                        <button onclick="registerWithEmail()" class="w-full bg-emerald-700 hover:bg-emerald-600 text-white font-extrabold py-4 rounded-xl text-xs uppercase tracking-wider shadow-lg transition-all">${t.register}</button>
+                    </div>
+                    <p class="text-center text-xs text-gray-500 dark:text-zinc-400 mt-4 font-semibold">
+                        <span id="toggle-auth-text">${t.no_account} <a href="#" onclick="toggleAuthForm()" class="text-emerald-600 font-bold underline">${t.register}</a></span>
+                    </p>
+                </div>
+            </div>`;
+    }
+
+    function toggleAuthForm() {
+        const loginForm = document.getElementById('login-form');
+        const registerForm = document.getElementById('register-form');
+        const toggleText = document.getElementById('toggle-auth-text');
+        const t = translations[state.currentLanguage];
+        if (registerForm.classList.contains('hidden')) {
+            loginForm.classList.add('hidden');
+            registerForm.classList.remove('hidden');
+            toggleText.innerHTML = `${t.have_account} <a href="#" onclick="toggleAuthForm()" class="text-emerald-600 font-bold underline">${t.login}</a>`;
+        } else {
+            registerForm.classList.add('hidden');
+            loginForm.classList.remove('hidden');
+            toggleText.innerHTML = `${t.no_account} <a href="#" onclick="toggleAuthForm()" class="text-emerald-600 font-bold underline">${t.register}</a>`;
+        }
+    }
+
+    async function loginWithEmail() {
+        const email = document.getElementById('login-email').value.trim().toLowerCase();
+        const password = document.getElementById('login-password').value;
+
+        if (!email || !password) return alert("ইমেইল ও পাসওয়ার্ড প্রবেশ করান।");
+
+        if (isFirebaseAvailable && auth) {
+            try {
+                await auth.signInWithEmailAndPassword(email, password);
+                return;
+            } catch (err) { console.warn(err.message); }
+        }
+
+        const match = state.allUsers.find(u => u.email.toLowerCase() === email);
+        if (match) {
+            if (match.isBlocked) return alert("আপনার অ্যাকাউন্টটি স্থগিত করা হয়েছে।");
+            state.userProfile = match;
+            state.currentUser = { uid: match.id, email: match.email };
+            saveMasterState();
+            switchScreen('dashboard');
+        } else {
+            alert("অ্যাকাউন্ট পাওয়া যায়নি! অনুগ্রহ করে সাইন-আপ করুন।");
+        }
+    }
+
+    async function registerWithEmail() {
+        const name = document.getElementById('reg-name').value.trim();
+        const email = document.getElementById('reg-email').value.trim().toLowerCase();
+        const phone = document.getElementById('reg-phone').value.trim();
+        const password = document.getElementById('reg-password').value;
+
+        if (!name || !email || !phone || password.length < 6) return alert("সকল তথ্য সঠিকভাবে পূরণ করুন।");
+
+        const existing = state.allUsers.find(u => u.email.toLowerCase() === email);
+        if (existing) return alert("এই ইমেইল দিয়ে আগেই অ্যাকাউন্ট রেজিস্টার করা হয়েছে!");
+
+        const userId = "USER_" + Date.now().toString().slice(-6);
+        const newUser = {
+            id: userId,
+            name: name,
+            email: email,
+            phone: phone,
+            balance: 0.00,
+            usdtBalance: 0.00,
+            role: "User",
+            isBlocked: false,
+            registeredAt: new Date().toISOString().replace('T', ' ').slice(0, 16)
+        };
+
+        if (isFirebaseAvailable && auth) {
+            try {
+                const cred = await auth.createUserWithEmailAndPassword(email, password);
+                newUser.id = cred.user.uid;
+            } catch (e) { console.warn(e.message); }
+        }
+
+        state.allUsers.push(newUser);
+        state.userProfile = newUser;
+        state.currentUser = { uid: newUser.id, email: newUser.email };
+
+        saveMasterState();
+        alert("অ্যাাকাউন্ট তৈরি সফল হয়েছে!");
+        switchScreen('dashboard');
+    }
+
+    async function handleLogout() {
+        if (isFirebaseAvailable && auth) await auth.signOut();
+        state.currentUser = null;
+        renderLoginScreen();
+    }
+
+    // --- Dashboard Renderer ---
+    function renderDashboard() {
+        const t = translations[state.currentLanguage];
+        const mainContent = document.getElementById('main-content');
+        const balanceText = state.balanceVisibility ? `৳ ${state.userProfile.balance.toFixed(2)}` : "•••••••";
+        const usdtText = state.balanceVisibility ? `$ ${state.userProfile.usdtBalance.toFixed(2)}` : "•••••••";
+
+        mainContent.innerHTML = `
+            <!-- Top Header Profile -->
+            <div class="flex justify-between items-center mb-4">
+                <div>
+                    <h4 class="text-[10px] font-black text-gray-400 dark:text-zinc-500 uppercase tracking-widest">${t.welcome_back}</h4>
+                    <h2 class="text-lg font-black text-gray-900 dark:text-zinc-100 flex items-center gap-2">
+                        ${state.userProfile.name}
+                    </h2>
+                    <span class="text-[9px] font-mono text-emerald-600 dark:text-emerald-400 font-extrabold">ID: ${state.userProfile.id}</span>
+                </div>
+                <button onclick="switchScreen('settings')" class="w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-400 font-black flex items-center justify-center border border-emerald-200 dark:border-emerald-800">
+                    ${state.userProfile.name.charAt(0)}
+                </button>
+            </div>
+
+            <!-- Dual Wallet Card -->
+            <div class="bg-gradient-to-tr from-emerald-800 to-emerald-650 dark:from-emerald-950 dark:to-teal-900 rounded-3xl p-5 text-white shadow-xl mb-4 relative overflow-hidden">
+                <div class="flex justify-between items-center mb-2">
+                    <span class="text-[10px] font-black uppercase tracking-widest text-emerald-200">${t.balance_title}</span>
+                    <button onclick="state.balanceVisibility = !state.balanceVisibility; renderDashboard();" class="text-emerald-100 bg-white/10 px-2.5 py-1 rounded-lg text-xs">
+                        <i class="fa-solid ${state.balanceVisibility ? 'fa-eye-slash' : 'fa-eye'}"></i>
+                    </button>
+                </div>
+                <div class="text-3xl font-black mb-3 tracking-tight">${balanceText}</div>
+                
+                <div class="pt-3 border-t border-emerald-600/50 flex justify-between items-center">
+                    <div>
+                        <span class="text-[9px] uppercase tracking-wider text-emerald-200 font-bold block">USDT ওয়ালেট ব্যালেন্স</span>
+                        <span class="text-base font-black text-emerald-100">${usdtText}</span>
+                    </div>
+                    <button onclick="openUSDTModal()" class="bg-emerald-400 hover:bg-emerald-300 text-emerald-950 px-3.5 py-1.5 rounded-xl text-xs font-black transition shadow">
+                        <i class="fa-solid fa-right-left mr-1"></i> বাই/সেল
+                    </button>
+                </div>
+            </div>
+
+            <!-- Custom Active Offers Carousel -->
+            ${state.customOffers && state.customOffers.length > 0 ? `
+                <div class="mb-4 space-y-2">
+                    ${state.customOffers.filter(o => o.active).map(o => `
+                        <div class="p-3 bg-gradient-to-r from-blue-600 to-indigo-700 text-white rounded-2xl shadow flex justify-between items-center">
+                            <div>
+                                <h4 class="text-xs font-black">${o.title}</h4>
+                                <p class="text-[10px] text-blue-100 font-medium">${o.desc}</p>
+                            </div>
+                            <span class="text-[9px] bg-white text-blue-900 font-black px-2 py-1 rounded-full uppercase">Offer</span>
+                        </div>
+                    `).join('')}
+                </div>
+            ` : ''}
+
+            <!-- ACTION BUTTONS -->
+            <div class="mb-5">
+                <h3 class="text-xs font-black text-gray-400 dark:text-zinc-500 uppercase tracking-widest mb-3">প্রধান সার্ভিসসমূহ</h3>
+                
+                <div class="grid grid-cols-4 gap-2.5 mb-2.5">
+                    <div onclick="openUSDTModal()" class="grid-btn p-3 bg-amber-50 dark:bg-amber-950/20 rounded-2xl flex flex-col items-center gap-1.5 text-center">
+                        <div class="w-10 h-10 bg-amber-500 text-white rounded-xl flex items-center justify-center text-sm font-bold shadow"><i class="fa-solid fa-coins"></i></div>
+                        <span class="text-[10px] font-extrabold text-amber-900 dark:text-amber-300">ট্রেড USDT</span>
+                    </div>
+                    <div onclick="openP2PTradingModal()" class="grid-btn p-3 bg-blue-50 dark:bg-blue-950/20 rounded-2xl flex flex-col items-center gap-1.5 text-center relative">
+                        <div class="w-10 h-10 bg-blue-600 text-white rounded-xl flex items-center justify-center font-bold text-sm shadow"><i class="fa-solid fa-users-between-lines"></i></div>
+                        <span class="text-[10px] font-extrabold text-blue-900 dark:text-blue-300">P2P ট্রেড</span>
+                    </div>
+                    <div onclick="openAddMoneyModal()" class="grid-btn p-3 bg-gray-50 dark:bg-zinc-900 rounded-2xl flex flex-col items-center gap-1.5 text-center">
+                        <div class="w-10 h-10 bg-emerald-100 dark:bg-emerald-950 text-emerald-600 rounded-xl flex items-center justify-center font-bold text-sm"><i class="fa-solid fa-plus"></i></div>
+                        <span class="text-[10px] font-bold">${t.add_money}</span>
+                    </div>
+                    <div onclick="openWithdrawModal()" class="grid-btn p-3 bg-gray-50 dark:bg-zinc-900 rounded-2xl flex flex-col items-center gap-1.5 text-center">
+                        <div class="w-10 h-10 bg-amber-100 dark:bg-amber-950 text-amber-600 rounded-xl flex items-center justify-center font-bold text-sm"><i class="fa-solid fa-circle-down"></i></div>
+                        <span class="text-[10px] font-bold">${t.withdraw}</span>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-4 gap-2.5">
+                    <div onclick="openGamingStoreModal()" class="grid-btn p-3 bg-gray-50 dark:bg-zinc-900 rounded-2xl flex flex-col items-center gap-1.5 text-center">
+                        <div class="w-10 h-10 bg-orange-100 dark:bg-orange-950 text-orange-600 rounded-xl flex items-center justify-center font-bold text-sm"><i class="fa-solid fa-gamepad"></i></div>
+                        <span class="text-[10px] font-bold">${t.gaming_store}</span>
+                    </div>
+                    <div onclick="openMobileRechargeModal()" class="grid-btn p-3 bg-gray-50 dark:bg-zinc-900 rounded-2xl flex flex-col items-center gap-1.5 text-center">
+                        <div class="w-10 h-10 bg-purple-100 dark:bg-purple-950 text-purple-600 rounded-xl flex items-center justify-center font-bold text-sm"><i class="fa-solid fa-mobile-screen"></i></div>
+                        <span class="text-[10px] font-bold">${t.mobile_recharge}</span>
+                    </div>
+                    <div onclick="openDataPackModal()" class="grid-btn p-3 bg-gray-50 dark:bg-zinc-900 rounded-2xl flex flex-col items-center gap-1.5 text-center">
+                        <div class="w-10 h-10 bg-teal-100 dark:bg-teal-950 text-teal-600 rounded-xl flex items-center justify-center font-bold text-sm"><i class="fa-solid fa-wifi"></i></div>
+                        <span class="text-[10px] font-bold">${t.data_pack}</span>
+                    </div>
+                    <div onclick="openSendMoneyModal()" class="grid-btn p-3 bg-gray-50 dark:bg-zinc-900 rounded-2xl flex flex-col items-center gap-1.5 text-center">
+                        <div class="w-10 h-10 bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 rounded-xl flex items-center justify-center font-bold text-sm"><i class="fa-solid fa-paper-plane"></i></div>
+                        <span class="text-[10px] font-bold">${t.send_money}</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Ledger -->
+            <div>
+                <div class="flex justify-between items-center mb-3">
+                    <h3 class="text-xs font-black text-gray-900 dark:text-zinc-100 uppercase tracking-wider">${t.recent_transactions}</h3>
+                    <button onclick="switchScreen('transactions')" class="text-xs font-extrabold text-emerald-700 dark:text-emerald-400">সব দেখুন</button>
+                </div>
+                <div class="space-y-2">
+                    ${renderUserTransactionsList(4)}
+                </div>
+            </div>`;
+    }
+
+    function renderUserTransactionsList(limit = 10) {
+        const list = state.transactions.slice(0, limit);
+        if (list.length === 0) return `<p class="text-xs text-center text-gray-400 py-4">কোনো সাম্প্রতিক লেনদেন নেই।</p>`;
+
+        return list.map(tx => `
+            <div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-zinc-900 rounded-2xl border border-gray-150 dark:border-zinc-800">
+                <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 rounded-xl flex items-center justify-center text-xs font-bold ${tx.type.includes('Add') || tx.type.includes('Buy') ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-600'}">
+                        <i class="fa-solid ${tx.type.includes('Add') || tx.type.includes('Buy') ? 'fa-arrow-down' : 'fa-arrow-up'}"></i>
+                    </div>
+                    <div>
+                        <h4 class="text-xs font-bold text-gray-900 dark:text-zinc-100">${tx.title || tx.type}</h4>
+                        <span class="text-[10px] text-gray-400 font-medium">${tx.timestamp}</span>
+                    </div>
+                </div>
+                <div class="text-right">
+                    <span class="text-xs font-black ${tx.type.includes('Add') || tx.type.includes('Sell') ? 'text-emerald-600' : 'text-red-600'}">৳ ${tx.amount}</span>
+                    <p class="text-[9px] text-gray-400 uppercase tracking-widest">${tx.id}</p>
+                </div>
+            </div>`).join('');
+    }
+
+    // --- PROFILE & SETTINGS MENU ---
+    function renderSettings() {
+        document.getElementById('main-content').innerHTML = `
+            <div class="text-center mb-6">
+                <div class="w-20 h-20 rounded-full bg-emerald-700 text-white text-3xl font-black mx-auto flex items-center justify-center border-4 border-emerald-500 shadow-md mb-2">
+                    ${state.userProfile.name.charAt(0)}
+                </div>
+                <h3 class="text-base font-extrabold text-gray-900 dark:text-white">${state.userProfile.name}</h3>
+                <p class="text-xs text-gray-400 font-medium">${state.userProfile.email} | ${state.userProfile.phone || 'ফোন আপডেট নেই'}</p>
+                <p class="text-[10px] font-mono text-emerald-600 font-bold mt-1">User ID: ${state.userProfile.id}</p>
+            </div>
+
+            <div class="space-y-2.5 pb-6">
+                <button onclick="openEditProfileModal()" class="w-full flex justify-between items-center p-3.5 bg-gray-50 dark:bg-zinc-900 rounded-2xl hover:bg-gray-100 dark:hover:bg-zinc-800 transition border border-gray-150 dark:border-zinc-800">
+                    <div class="flex items-center gap-3">
+                        <i class="fa-solid fa-user-pen text-emerald-600 text-base"></i>
+                        <span class="text-xs font-bold text-gray-800 dark:text-zinc-200">প্রোফাইল তথ্য পরিবর্তন (Edit Profile)</span>
+                    </div>
+                    <i class="fa-solid fa-chevron-right text-xs text-gray-400"></i>
+                </button>
+
+                <button onclick="openChangePasswordModal()" class="w-full flex justify-between items-center p-3.5 bg-gray-50 dark:bg-zinc-900 rounded-2xl hover:bg-gray-100 dark:hover:bg-zinc-800 transition border border-gray-150 dark:border-zinc-800">
+                    <div class="flex items-center gap-3">
+                        <i class="fa-solid fa-lock text-emerald-600 text-base"></i>
+                        <span class="text-xs font-bold text-gray-800 dark:text-zinc-200">সিকিউরিটি পিন ও পাসওয়ার্ড পরিবর্তন</span>
+                    </div>
+                    <i class="fa-solid fa-chevron-right text-xs text-gray-400"></i>
+                </button>
+
+                <button onclick="openTermsModal()" class="w-full flex justify-between items-center p-3.5 bg-gray-50 dark:bg-zinc-900 rounded-2xl hover:bg-gray-100 dark:hover:bg-zinc-800 transition border border-gray-150 dark:border-zinc-800">
+                    <div class="flex items-center gap-3">
+                        <i class="fa-solid fa-file-contract text-emerald-600 text-base"></i>
+                        <span class="text-xs font-bold text-gray-800 dark:text-zinc-200">ব্যবহারের নিয়মাবলী (Terms &amp; Conditions)</span>
+                    </div>
+                    <i class="fa-solid fa-chevron-right text-xs text-gray-400"></i>
+                </button>
+
+                <button onclick="openPrivacyModal()" class="w-full flex justify-between items-center p-3.5 bg-gray-50 dark:bg-zinc-900 rounded-2xl hover:bg-gray-100 dark:hover:bg-zinc-800 transition border border-gray-150 dark:border-zinc-800">
+                    <div class="flex items-center gap-3">
+                        <i class="fa-solid fa-shield-halved text-emerald-600 text-base"></i>
+                        <span class="text-xs font-bold text-gray-800 dark:text-zinc-200">গোপনীয়তা নীতি (Privacy Policy)</span>
+                    </div>
+                    <i class="fa-solid fa-chevron-right text-xs text-gray-400"></i>
+                </button>
+
+                <button onclick="alert('২৪/৭ হেল্পলাইন হটলাইন: ১৬২৪৭ \nহোয়াটসঅ্যাপ সাপোর্ট: +8801700000000')" class="w-full flex justify-between items-center p-3.5 bg-gray-50 dark:bg-zinc-900 rounded-2xl hover:bg-gray-100 dark:hover:bg-zinc-800 transition border border-gray-150 dark:border-zinc-800">
+                    <div class="flex items-center gap-3">
+                        <i class="fa-solid fa-headset text-emerald-600 text-base"></i>
+                        <span class="text-xs font-bold text-gray-800 dark:text-zinc-200">২৪/৭ কাস্টমার সাপোর্ট ও লাইভ চ্যাট</span>
+                    </div>
+                    <i class="fa-solid fa-chevron-right text-xs text-gray-400"></i>
+                </button>
+
+                <div class="p-3 bg-gray-50 dark:bg-zinc-900/60 rounded-2xl text-[10px] text-gray-400 text-center font-mono border">
+                    PayBangla App Version 4.0.0 Pro (User Edition)
+                </div>
+
+                <button onclick="handleLogout()" class="w-full py-3.5 border border-red-500/30 hover:bg-red-50 text-red-600 font-extrabold rounded-2xl text-xs transition mt-2">
+                    লগআউট করুন
+                </button>
+            </div>`;
+    }
+
+    function openEditProfileModal() {
+        showModal("প্রোফাইল এডিট করুন", `
+            <div class="space-y-3">
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 mb-1 uppercase">পূর্ণ নাম</label>
+                    <input type="text" id="edit-name-val" value="${state.userProfile.name}" class="w-full bg-gray-50 dark:bg-zinc-950 border p-3 rounded-xl text-xs font-bold">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 mb-1 uppercase">মোবাইল নম্বর</label>
+                    <input type="tel" id="edit-phone-val" value="${state.userProfile.phone || ''}" class="w-full bg-gray-50 dark:bg-zinc-950 border p-3 rounded-xl text-xs font-bold">
+                </div>
+                <button onclick="saveProfileDetails()" class="w-full bg-emerald-700 text-white font-bold py-3 rounded-xl text-xs uppercase shadow">সেভ করুন</button>
+            </div>
+        `);
+    }
+
+    function saveProfileDetails() {
+        const n = document.getElementById('edit-name-val').value.trim();
+        const p = document.getElementById('edit-phone-val').value.trim();
+        if (n) {
+            state.userProfile.name = n;
+            state.userProfile.phone = p;
+            saveMasterState();
+            closeModal();
+            alert("প্রোফাইল তথ্য আপডেট করা হয়েছে!");
+            renderSettings();
+        }
+    }
+
+    function openTermsModal() {
+        showModal("ব্যবহারের নিয়মাবলী (Terms)", `
+            <div class="space-y-3 text-xs text-gray-600 dark:text-zinc-300 leading-relaxed">
+                <p><strong>১. পেমেন্ট ভেরিফিকেশন:</strong> সঠিক TrxID ও মোবাইল নম্বর দিয়ে রিকোয়েস্ট জমা দিতে হবে।</p>
+                <p><strong>২. লেনদেন সময়সীমা:</strong> ডিপোজিট ও উইথড্র রিকোয়েস্ট ভেরিফিকেশনের পর ৫-১৫ মিনিটের মধ্যে সম্পন্ন হয়।</p>
+                <p><strong>৩. সঠিক তথ্য:</strong> ভুল একাউন্ট নম্বর বা ভুল অ্যাড্রেস দিলে কর্তৃপক্ষ দায়ী থাকবে না।</p>
+            </div>
+        `);
+    }
+
+    function openPrivacyModal() {
+        showModal("গোপনীয়তা নীতি (Privacy)", `
+            <div class="space-y-3 text-xs text-gray-600 dark:text-zinc-300 leading-relaxed">
+                <p>PayBangla আপনার সমস্ত তথ্য গোপন ও সুরক্ষিত রাখে। আপনার অনুমতি ছাড়া তৃতীয় পক্ষের কাছে কোনো তথ্য শেয়ার করা হয় না।</p>
+            </div>
+        `);
+    }
+
+    function openChangePasswordModal() {
+        showModal("পাসওয়ার্ড ও সিকিউরিটি পিন পরিবর্তন", `
+            <div class="space-y-3">
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 mb-1 uppercase">নতুন পাসওয়ার্ড</label>
+                    <input type="password" id="new-pwd-input" placeholder="••••••••" class="w-full bg-gray-50 dark:bg-zinc-950 border p-3 rounded-xl text-xs font-bold">
+                </div>
+                <button onclick="alert('সিকিউরিটি পাসওয়ার্ড সফলভাবে আপডেট করা হয়েছে!'); closeModal();" class="w-full bg-emerald-700 text-white font-bold py-3 rounded-xl text-xs">সেভ করুন</button>
+            </div>
+        `);
+    }
+
+    // --- DATA PACK ORDER SYSTEM ---
+    function openDataPackModal() {
+        if (!checkFeatureFlag('dataPack', 'ডাটা প্যাক')) return;
+        showModal("ইন্টারনেট ডাটা প্যাক (MyGP Style)", `
+            <div class="space-y-4">
+                <div class="grid grid-cols-4 gap-2">
+                    ${operators.map(op => `
+                        <button onclick="renderDataPacksForOperator('${op.id}')" id="dop-${op.id}" class="operator-badge ${state.selectedOperator === op.id ? 'selected' : ''} flex flex-col items-center gap-1 p-2 bg-gray-50 dark:bg-zinc-900 rounded-xl border border-gray-200 dark:border-zinc-800">
+                            <span class="text-[10px] font-bold">${op.name}</span>
+                        </button>`).join('')}
+                </div>
+
+                <div id="data-pack-list" class="space-y-2"></div>
+            </div>
+        `);
+        renderDataPacksForOperator(state.selectedOperator || 'gp');
+    }
+
+    function renderDataPacksForOperator(opId) {
+        state.selectedOperator = opId;
+        document.querySelectorAll('[id^="dop-"]').forEach(el => el.classList.remove('selected'));
+        const target = document.getElementById('dop-' + opId);
+        if (target) target.classList.add('selected');
+
+        const packs = state.dataPackages[opId] || [];
+        document.getElementById('data-pack-list').innerHTML = packs.map(p => `
+            <div class="flex justify-between items-center p-3.5 bg-gray-50 dark:bg-zinc-900 rounded-2xl border border-gray-200 dark:border-zinc-800">
+                <div>
+                    <h4 class="text-xs font-bold text-gray-900 dark:text-zinc-100">${p.name}</h4>
+                    <span class="text-[10px] text-emerald-600 font-extrabold">মূল্য: ৳ ${p.price} BDT</span>
+                </div>
+                <button onclick="promptDataPackMobileNumber('${p.name}', ${p.price})" class="bg-emerald-700 hover:bg-emerald-600 text-white font-black text-xs px-3.5 py-2 rounded-xl shadow">
+                    প্যাক কিনুন
+                </button>
+            </div>
+        `).join('');
+    }
+
+    function promptDataPackMobileNumber(packName, price) {
+        showModal("ডাটা প্যাক ক্রয় করুন", `
+            <div class="space-y-4">
+                <div class="p-3 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 rounded-xl text-xs font-bold">
+                    প্যাকেজ: <span class="text-emerald-700 dark:text-emerald-400 font-black">${packName}</span><br>
+                    মূল্য: <span class="text-emerald-700 dark:text-emerald-400 font-black">৳ ${price} BDT</span>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">প্রাপকের মোবাইল নম্বর</label>
+                    <input type="tel" id="datapack-target-phone" value="${state.userProfile.phone || ''}" placeholder="01700000000" class="w-full bg-gray-50 dark:bg-zinc-950 border py-3 px-4 rounded-xl text-xs font-bold">
+                </div>
+                <button onclick="processDataPackOrder('${packName}', ${price})" class="w-full bg-emerald-700 text-white font-extrabold py-3.5 rounded-xl text-xs uppercase shadow">
+                    অর্ডার কনফার্ম করুন
+                </button>
+            </div>
+        `);
+    }
+
+    function processDataPackOrder(packName, price) {
+        const phone = document.getElementById('datapack-target-phone').value.trim();
+        if (!phone || phone.length < 11) return alert("সঠিক ১১ ডিজিটের মোবাইল নম্বর দিন!");
+
+        if (price > state.userProfile.balance) return alert("আপনার ওয়ালেটে পর্যাপ্ত টাকা নেই!");
+
+        state.pendingRequests.unshift({
+            id: "REQ_" + Date.now().toString().slice(-4),
+            userId: state.userProfile.id,
+            userName: state.userProfile.name,
+            type: `Data Pack (${packName})`,
+            amountBDT: price,
+            trxId: phone,
+            status: "Pending",
+            timestamp: new Date().toISOString().replace('T', ' ').slice(0, 16)
+        });
+
+        saveMasterState();
+        closeModal();
+        alert(`ডাটা প্যাক ক্রয় রিকোয়েস্ট জমা দেওয়া হয়েছে (${phone})!`);
+        renderDashboard();
+    }
+
+    // --- PROFESSIONAL USDT BUY / SELL SYSTEM ---
+    function openUSDTModal() {
+        if (!checkFeatureFlag('usdtTrade', 'USDT ট্রেড')) return;
+        showModal("USDT Trade Exchange", `
+            <div class="space-y-4">
+                <div class="grid grid-cols-2 gap-2 text-center p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200/60 dark:border-amber-900/40 rounded-xl">
+                    <div>
+                        <span class="text-[10px] text-gray-500 font-bold block">Buy Rate (কিনুন)</span>
+                        <span class="text-xs font-black text-emerald-700 dark:text-emerald-400">1 USDT = ৳ ${state.usdtRates.buyRate.toFixed(2)}</span>
+                    </div>
+                    <div>
+                        <span class="text-[10px] text-gray-500 font-bold block">Sell Rate (বিক্রি করুন)</span>
+                        <span class="text-xs font-black text-amber-600">1 USDT = ৳ ${state.usdtRates.sellRate.toFixed(2)}</span>
+                    </div>
+                </div>
+
+                <div class="flex bg-gray-100 dark:bg-zinc-800 p-1 rounded-xl">
+                    <button id="usdt-buy-btn" onclick="setUSDTTradeType('buy')" class="flex-1 py-2 text-xs font-bold rounded-lg bg-white dark:bg-zinc-900 text-emerald-700 shadow">Buy USDT (কিনুন)</button>
+                    <button id="usdt-sell-btn" onclick="setUSDTTradeType('sell')" class="flex-1 py-2 text-xs font-bold rounded-lg text-gray-500">Sell USDT (বিক্রি করুন)</button>
+                </div>
+
+                <input type="hidden" id="usdt-trade-type" value="buy">
+
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 mb-1">USDT এর পরিমাণ ($)</label>
+                    <input type="number" id="usdt-amount" oninput="calculateUSDTTotal()" placeholder="10" class="w-full bg-gray-50 dark:bg-zinc-950 border py-3 px-4 rounded-xl text-sm font-bold">
+                </div>
+
+                <div class="p-3 bg-gray-50 dark:bg-zinc-950 rounded-xl text-xs space-y-1.5">
+                    <div class="flex justify-between"><span class="text-gray-400">মোট মূল্য (BDT):</span> <span id="usdt-total-bdt" class="font-black text-emerald-600">৳ 0.00</span></div>
+                    <div class="flex justify-between"><span class="text-gray-400">মেইন ওয়ালেট ব্যালেন্স:</span> <span class="font-bold">৳ ${state.userProfile.balance.toFixed(2)}</span></div>
+                </div>
+
+                <div id="usdt-instructions-block" class="p-3 bg-gray-50 dark:bg-zinc-950 border rounded-xl text-xs space-y-2">
+                    <p class="font-bold text-emerald-700 dark:text-emerald-400">পেমেন্ট/ওয়ালেট এড্রেস:</p>
+                    <p class="text-[11px] font-mono bg-white dark:bg-zinc-800 p-2 rounded border flex justify-between items-center">
+                        <span id="usdt-pay-addr">${state.adminDepositWallet}</span>
+                        <button onclick="navigator.clipboard.writeText(document.getElementById('usdt-pay-addr').innerText); alert('এড্রেস কপি করা হয়েছে!');" class="text-emerald-600 font-bold ml-2">Copy</button>
+                    </p>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 mb-1 uppercase">ট্রানজেকশন আইডি (TrxID / TxHash)</label>
+                    <input type="text" id="usdt-trx-id" placeholder="যেমন: 9J812390A / 0x123..." class="w-full bg-gray-50 dark:bg-zinc-950 border py-3 px-4 rounded-xl text-xs font-bold uppercase">
+                </div>
+
+                <button onclick="processUSDTTrade()" class="w-full bg-emerald-700 text-white font-extrabold py-3.5 rounded-xl text-xs uppercase shadow hover:bg-emerald-600">
+                    ট্রেড রিকোয়েস্ট জমা দিন
+                </button>
+            </div>
+        `);
+        setUSDTTradeType('buy');
+    }
+
+    function setUSDTTradeType(type) {
+        document.getElementById('usdt-trade-type').value = type;
+        const buyBtn = document.getElementById('usdt-buy-btn');
+        const sellBtn = document.getElementById('usdt-sell-btn');
+        const addrEl = document.getElementById('usdt-pay-addr');
+
+        if (type === 'buy') {
+            buyBtn.className = "flex-1 py-2 text-xs font-bold rounded-lg bg-white dark:bg-zinc-900 text-emerald-700 shadow";
+            sellBtn.className = "flex-1 py-2 text-xs font-bold rounded-lg text-gray-500";
+            if (addrEl) addrEl.innerText = state.adminDepositWallet;
+        } else {
+            sellBtn.className = "flex-1 py-2 text-xs font-bold rounded-lg bg-white dark:bg-zinc-900 text-amber-600 shadow";
+            buyBtn.className = "flex-1 py-2 text-xs font-bold rounded-lg text-gray-500";
+            if (addrEl) addrEl.innerText = state.adminUSDTWallet;
+        }
+        calculateUSDTTotal();
+    }
+
+    function calculateUSDTTotal() {
+        const usdt = parseFloat(document.getElementById('usdt-amount').value) || 0;
+        const type = document.getElementById('usdt-trade-type').value;
+        const rate = type === 'buy' ? state.usdtRates.buyRate : state.usdtRates.sellRate;
+        const totalBDT = usdt * rate;
+        document.getElementById('usdt-total-bdt').innerText = `৳ ${totalBDT.toFixed(2)}`;
+    }
+
+    function processUSDTTrade() {
+        const usdt = parseFloat(document.getElementById('usdt-amount').value);
+        const type = document.getElementById('usdt-trade-type').value;
+        const trxId = document.getElementById('usdt-trx-id').value.trim();
+        const rate = type === 'buy' ? state.usdtRates.buyRate : state.usdtRates.sellRate;
+        const totalBDT = usdt * rate;
+
+        if (isNaN(usdt) || usdt <= 0 || !trxId) return alert("সঠিক USDT পরিমাণ ও TrxID দিন।");
+
+        state.pendingRequests.unshift({
+            id: "REQ_" + Date.now().toString().slice(-5),
+            userId: state.userProfile.id,
+            userName: state.userProfile.name,
+            type: type === 'buy' ? 'USDT Buy' : 'USDT Sell',
+            amountBDT: totalBDT,
+            usdtAmount: usdt,
+            trxId: trxId,
+            status: 'Pending',
+            timestamp: new Date().toISOString().replace('T', ' ').slice(0, 16)
+        });
+
+        saveMasterState();
+        closeModal();
+        alert("ট্রেড রিকোয়েস্ট সফলভাবে জমা হয়েছে!");
+        renderDashboard();
+    }
+
+    // --- P2P ESCROW & CHAT SYSTEM ---
+    function openP2PTradingModal(activeTab = 'market') {
+        if (!checkFeatureFlag('p2pTrade', 'P2P ট্রেড')) return;
+        const myTrades = state.p2pTrades.filter(t => t.buyerId === state.userProfile.id || t.sellerId === state.userProfile.id);
+        const unreadCount = myTrades.filter(t => t.lastSenderId && t.lastSenderId !== state.userProfile.id && t.isSeen === false).length;
+
+        showModal("P2P ট্রেডিং মার্কেটপ্লেস", `
+            <div class="space-y-4">
+                <div class="flex gap-2 border-b border-gray-100 dark:border-zinc-800 pb-2">
+                    <button onclick="openP2PTradingModal('market')" class="flex-1 py-1.5 text-xs font-bold rounded-lg ${activeTab === 'market' ? 'bg-blue-600 text-white shadow' : 'bg-gray-100 dark:bg-zinc-800 text-gray-500'}">
+                        P2P মার্কেট
+                    </button>
+                    <button onclick="openP2PTradingModal('my_trades')" class="flex-1 py-1.5 text-xs font-bold rounded-lg ${activeTab === 'my_trades' ? 'bg-blue-600 text-white shadow' : 'bg-gray-100 dark:bg-zinc-800 text-gray-500'} flex items-center justify-center gap-1">
+                        <span>আমার ট্রেড ও চ্যাট</span>
+                        ${unreadCount > 0 ? `<span class="bg-red-500 text-white text-[9px] px-1.5 py-0.2 rounded-full font-black animate-bounce">${unreadCount} NEW</span>` : (myTrades.length > 0 ? `<span class="bg-gray-200 dark:bg-zinc-700 text-gray-700 dark:text-zinc-300 text-[9px] px-1.5 py-0.2 rounded-full font-bold">${myTrades.length}</span>` : '')}
+                    </button>
+                </div>
+
+                ${activeTab === 'market' ? `
+                    <div class="flex justify-between items-center">
+                        <span class="text-xs font-black text-gray-500 uppercase">ইউজার টু ইউজার কেনাবেচা</span>
+                        <button onclick="openPostP2PAdModal()" class="bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs px-3 py-1.5 rounded-xl shadow">
+                            + নতুন অ্যাড দিন (Post Ad)
+                        </button>
+                    </div>
+
+                    <div class="space-y-2.5">
+                        ${state.p2pAds.length === 0 ? `<p class="text-xs text-gray-400 text-center py-4">বর্তমানে কোনো সক্রিয় P2P অ্যাড নেই।</p>` : state.p2pAds.map(ad => {
+                            const isMyAd = (ad.userId === state.userProfile.id);
+                            return `
+                            <div class="p-3.5 bg-gray-50 dark:bg-zinc-900 rounded-2xl border border-gray-200 dark:border-zinc-800 space-y-2">
+                                <div class="flex justify-between items-center text-xs font-bold">
+                                    <div>
+                                        <span class="font-black text-gray-900 dark:text-white">${ad.userName}</span>
+                                        ${isMyAd ? `<span class="ml-1 text-[9px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-black">আপনার অ্যাড</span>` : ''}
+                                        <span class="ml-1 text-[9px] px-2 py-0.5 rounded-full ${ad.type === 'SELL' ? 'bg-red-100 text-red-600' : 'bg-emerald-100 text-emerald-600'}">${ad.type}</span>
+                                    </div>
+                                    <span class="text-emerald-600 font-black">৳ ${ad.price.toFixed(2)} / USDT</span>
+                                </div>
+                                <div class="flex justify-between items-center text-[10px] text-gray-400 font-medium">
+                                    <span>Available: $${ad.amountUSD} USDT</span>
+                                    <span class="bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded font-bold">পেমেন্ট: ${ad.paymentMethod}</span>
+                                </div>
+                                
+                                ${isMyAd ? `
+                                    <div class="flex items-center justify-between bg-zinc-200 dark:bg-zinc-800 text-gray-600 dark:text-zinc-400 p-2 rounded-xl text-xs font-bold">
+                                        <span class="text-[10px]"><i class="fa-solid fa-lock mr-1"></i> নিজের পোস্ট করা অ্যাড থেকে নিজে ট্রেড করা যাবে না</span>
+                                        <button onclick="deleteMyP2PAd('${ad.id}')" class="text-red-600 font-black text-[10px] underline ml-2">মুছে ফেলুন</button>
+                                    </div>
+                                ` : `
+                                    <button onclick="initiateP2PTradeModal('${ad.id}')" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 rounded-xl text-xs shadow">
+                                        ${ad.type === 'SELL' ? 'USDT কিনুন (Buy Calculator)' : 'USDT বিক্রি করুন (Sell Calculator)'}
+                                    </button>
+                                `}
+                            </div>`;
+                        }).join('')}
+                    </div>
+                ` : `
+                    <div class="space-y-2">
+                        ${myTrades.length === 0 ? `<p class="text-xs text-gray-400 text-center py-6">আপনার কোনো রানিং ট্রেড বা চ্যাট হিস্ট্রি নেই।</p>` : myTrades.map(t => {
+                            const isUnread = (t.lastSenderId && t.lastSenderId !== state.userProfile.id && t.isSeen === false);
+                            return `
+                            <div onclick="openP2PChatRoom('${t.id}')" class="p-3 bg-gray-50 dark:bg-zinc-900 rounded-2xl border ${isUnread ? 'border-red-500 dark:border-red-500 shadow-md' : 'border-gray-200 dark:border-zinc-800'} flex justify-between items-center cursor-pointer hover:bg-gray-100 dark:hover:bg-zinc-800 transition relative">
+                                <div class="space-y-0.5">
+                                    <div class="flex items-center gap-2">
+                                        <span class="text-xs font-black text-gray-900 dark:text-white">${t.buyerId === state.userProfile.id ? 'Seller: ' + t.sellerName : 'Buyer: ' + t.buyerName}</span>
+                                        <span class="text-[9px] px-2 py-0.2 rounded-full ${t.status === 'Completed' ? 'bg-emerald-100 text-emerald-600' : (t.status === 'Paid' ? 'bg-blue-100 text-blue-600' : 'bg-amber-100 text-amber-600')} font-bold">${t.status}</span>
+                                    </div>
+                                    <p class="text-[10px] text-gray-400 font-mono">Amount: $${t.amountUSD} USDT (৳${t.amountBDT.toFixed(2)}) • ${t.paymentMethod || 'bKash'}</p>
+                                </div>
+                                <div class="flex items-center gap-1.5 text-blue-600 text-xs font-bold">
+                                    ${isUnread ? `<span class="bg-red-600 text-white text-[9px] px-2 py-0.5 rounded-full font-black animate-pulse">NEW</span>` : ''}
+                                    <i class="fa-solid fa-comments"></i>
+                                    <span>চ্যাট</span>
+                                </div>
+                            </div>`;
+                        }).join('')}
+                    </div>
+                `}
+            </div>
+        `);
+    }
+
+    function deleteMyP2PAd(adId) {
+        if (!confirm("আপনি কি নিশ্চিত যে এই অ্যাডটি মুছে ফেলতে চান?")) return;
+        state.p2pAds = state.p2pAds.filter(a => a.id !== adId);
+        saveMasterState();
+        alert("আপনার অ্যাডটি ডিলিট করা হয়েছে!");
+        openP2PTradingModal('market');
+    }
+
+    function openPostP2PAdModal() {
+        showModal("নতুন P2P অ্যাড পোস্ট করুন", `
+            <div class="space-y-3">
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 mb-1">অ্যাডের ধরণ</label>
+                    <select id="p2p-ad-type" class="w-full bg-gray-50 dark:bg-zinc-950 border p-3 rounded-xl text-xs font-bold">
+                        <option value="SELL">I want to SELL USDT (আমি ডলার বিক্রি করব)</option>
+                        <option value="BUY">I want to BUY USDT (আমি ডলার কিনব)</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 mb-1">পেমেন্ট মেথড পছন্দ করুন</label>
+                    <select id="p2p-ad-method" class="w-full bg-gray-50 dark:bg-zinc-950 border p-3 rounded-xl text-xs font-bold">
+                        ${state.paymentGateways.map(g => `<option value="${g.name}">${g.name}</option>`).join('')}
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 mb-1">প্রতি USDT মূল্য (BDT Rate)</label>
+                    <input type="number" step="0.1" id="p2p-ad-price" oninput="updatePostAdCalc()" placeholder="121.5" class="w-full bg-gray-50 dark:bg-zinc-950 border p-3 rounded-xl text-xs font-bold">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 mb-1">মোট USDT পরিমাণ ($)</label>
+                    <input type="number" id="p2p-ad-amount" oninput="updatePostAdCalc()" placeholder="50" class="w-full bg-gray-50 dark:bg-zinc-950 border p-3 rounded-xl text-xs font-bold">
+                </div>
+
+                <div class="p-3 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-xl text-xs">
+                    <div class="flex justify-between font-bold text-blue-900 dark:text-blue-300">
+                        <span>মোট পে আউট হিসাব:</span>
+                        <span id="p2p-post-calc-total" class="font-black text-emerald-600">৳ 0.00 BDT</span>
+                    </div>
+                </div>
+
+                <button onclick="submitP2PAd()" class="w-full bg-blue-600 text-white font-bold py-3 rounded-xl text-xs uppercase shadow">অ্যাড পাবলিশ করুন</button>
+            </div>
+        `);
+    }
+
+    function updatePostAdCalc() {
+        const price = parseFloat(document.getElementById('p2p-ad-price').value) || 0;
+        const amount = parseFloat(document.getElementById('p2p-ad-amount').value) || 0;
+        const total = price * amount;
+        document.getElementById('p2p-post-calc-total').innerText = `৳ ${total.toFixed(2)} BDT`;
+    }
+
+    function submitP2PAd() {
+        const type = document.getElementById('p2p-ad-type').value;
+        const price = parseFloat(document.getElementById('p2p-ad-price').value);
+        const amount = parseFloat(document.getElementById('p2p-ad-amount').value);
+        const method = document.getElementById('p2p-ad-method').value;
+
+        if (isNaN(price) || isNaN(amount) || amount <= 0 || price <= 0) return alert("সবকটি ফিল্ডে সঠিক সংখ্যা দিন।");
+
+        state.p2pAds.unshift({
+            id: "AD_" + Date.now().toString().slice(-4),
+            userId: state.userProfile.id,
+            userName: state.userProfile.name,
+            type: type,
+            price: price,
+            amountUSD: amount,
+            paymentMethod: method
+        });
+
+        saveMasterState();
+        alert("আপনার P2P অ্যাড পোস্ট করা হয়েছে!");
+        openP2PTradingModal('market');
+    }
+
+    function initiateP2PTradeModal(adId) {
+        const ad = state.p2pAds.find(a => a.id === adId);
+        if (!ad) return;
+
+        if (ad.userId === state.userProfile.id) {
+            return alert("আপনি নিজের তৈরি করা অ্যাড থেকে নিজে বাই/সেল করতে পারবেন না!");
+        }
+
+        showModal(`${ad.type === 'SELL' ? 'USDT ক্রয় করুন' : 'USDT বিক্রি করুন'} - ক্যালকুলেটর`, `
+            <div class="space-y-3">
+                <div class="p-3 bg-gray-50 dark:bg-zinc-950 rounded-xl border text-xs space-y-1">
+                    <div class="flex justify-between font-bold">
+                        <span class="text-gray-500">ট্রেডার:</span>
+                        <span>${ad.userName}</span>
+                    </div>
+                    <div class="flex justify-between font-bold">
+                        <span class="text-gray-500">রেট:</span>
+                        <span class="text-emerald-600">৳ ${ad.price.toFixed(2)} BDT / USDT</span>
+                    </div>
+                    <div class="flex justify-between font-bold">
+                        <span class="text-gray-500">সর্বোচ্চ এভেলেবল:</span>
+                        <span>$${ad.amountUSD} USDT</span>
+                    </div>
+                    <div class="flex justify-between font-bold">
+                        <span class="text-gray-500">পেমেন্ট মেথড:</span>
+                        <span class="text-blue-600">${ad.paymentMethod}</span>
+                    </div>
+                </div>
+
+                <div class="space-y-2 border-t pt-2">
+                    <div>
+                        <label class="block text-[11px] font-bold text-gray-500 mb-1">কত USDT ${ad.type === 'SELL' ? 'কিনতে চান' : 'বিক্রি করবেন'}? ($)</label>
+                        <input type="number" id="p2p-calc-usdt" oninput="p2pCalculateFromUSDT(${ad.price}, ${ad.amountUSD})" value="${ad.amountUSD}" class="w-full bg-gray-50 dark:bg-zinc-950 border p-3 rounded-xl text-xs font-bold">
+                    </div>
+
+                    <div>
+                        <label class="block text-[11px] font-bold text-gray-500 mb-1">মোট টাকার পরিমাণ (BDT Calculation)</label>
+                        <input type="number" id="p2p-calc-bdt" oninput="p2pCalculateFromBDT(${ad.price}, ${ad.amountUSD})" value="${(ad.amountUSD * ad.price).toFixed(2)}" class="w-full bg-gray-50 dark:bg-zinc-950 border p-3 rounded-xl text-xs font-bold text-emerald-600">
+                    </div>
+                </div>
+
+                <button onclick="confirmP2PTrade('${ad.id}')" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-extrabold py-3.5 rounded-xl text-xs uppercase shadow">
+                    ট্রেড কনফার্ম করুন &amp; চ্যাট খুলুন
+                </button>
+            </div>
+        `);
+    }
+
+    function p2pCalculateFromUSDT(rate, maxUSD) {
+        const usdtInput = document.getElementById('p2p-calc-usdt');
+        const bdtInput = document.getElementById('p2p-calc-bdt');
+        let usdt = parseFloat(usdtInput.value) || 0;
+        if (usdt > maxUSD) {
+            usdt = maxUSD;
+            usdtInput.value = usdt;
+        }
+        bdtInput.value = (usdt * rate).toFixed(2);
+    }
+
+    function p2pCalculateFromBDT(rate, maxUSD) {
+        const usdtInput = document.getElementById('p2p-calc-usdt');
+        const bdtInput = document.getElementById('p2p-calc-bdt');
+        let bdt = parseFloat(bdtInput.value) || 0;
+        let usdt = bdt / rate;
+        if (usdt > maxUSD) {
+            usdt = maxUSD;
+            bdt = usdt * rate;
+            bdtInput.value = bdt.toFixed(2);
+        }
+        usdtInput.value = usdt.toFixed(2);
+    }
+
+    function confirmP2PTrade(adId) {
+        const ad = state.p2pAds.find(a => a.id === adId);
+        if (!ad) return;
+
+        const usdt = parseFloat(document.getElementById('p2p-calc-usdt').value);
+        const bdt = parseFloat(document.getElementById('p2p-calc-bdt').value);
+
+        if (!usdt || usdt <= 0 || !bdt || bdt <= 0) {
+            return alert("সঠিক পরিমাণ লিখুন!");
+        }
+
+        const trade = {
+            id: "TRADE_" + Date.now().toString().slice(-4),
+            adId: ad.id,
+            buyerId: ad.type === 'SELL' ? state.userProfile.id : ad.userId,
+            buyerName: ad.type === 'SELL' ? state.userProfile.name : ad.userName,
+            sellerId: ad.type === 'SELL' ? ad.userId : state.userProfile.id,
+            sellerName: ad.type === 'SELL' ? ad.userName : state.userProfile.name,
+            amountUSD: usdt,
+            amountBDT: bdt,
+            paymentMethod: ad.paymentMethod,
+            status: 'Pending',
+            isSeen: true,
+            lastSenderId: state.userProfile.id,
+            messages: [
+                { sender: "System", text: `P2P ট্রেড শুরু হয়েছে! পরিমাণ: $${usdt} USDT (৳${bdt.toFixed(2)} BDT)। পেমেন্ট মেথড: ${ad.paymentMethod}`, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }
+            ]
+        };
+        state.p2pTrades.unshift(trade);
+        saveMasterState();
+        openP2PChatRoom(trade.id);
+    }
+
+    function openP2PChatRoom(tradeId) {
+        const trade = state.p2pTrades.find(t => t.id === tradeId);
+        if (!trade) return;
+
+        trade.isSeen = true;
+        saveMasterState();
+
+        const isBuyer = (trade.buyerId === state.userProfile.id);
+        const isSeller = (trade.sellerId === state.userProfile.id);
+
+        showModal(`P2P চ্যাট রুম (${trade.id})`, `
+            <div class="space-y-3">
+                <div class="p-2.5 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 rounded-xl text-xs flex justify-between items-center font-bold">
+                    <span>পরিমাণ: $${trade.amountUSD} USDT</span>
+                    <span class="text-emerald-600">৳ ${trade.amountBDT.toFixed(2)} BDT</span>
+                </div>
+
+                ${trade.status !== 'Completed' ? `
+                    <div class="p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 rounded-xl space-y-2">
+                        <div class="flex justify-between items-center text-xs font-extrabold">
+                            <span class="text-amber-800 dark:text-amber-300">অটোমেটিক এস্ক্রো স্টেটাস:</span>
+                            <span class="px-2 py-0.5 bg-amber-200 dark:bg-amber-900 text-amber-900 dark:text-amber-100 rounded-full text-[10px]">${trade.status}</span>
+                        </div>
+
+                        ${isBuyer && trade.status === 'Pending' ? `
+                            <button onclick="markP2PTradeAsPaid('${trade.id}')" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black py-2 rounded-xl text-xs shadow">
+                                <i class="fa-solid fa-check-circle mr-1"></i> আমি টাকা পাঠিয়েছি (Mark as Paid)
+                            </button>
+                        ` : ''}
+
+                        ${isSeller ? `
+                            <button onclick="releaseP2PUSDTAutomatically('${trade.id}')" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-black py-2 rounded-xl text-xs shadow">
+                                <i class="fa-solid fa-unlock mr-1"></i> টাকা পেয়েছি, ডলার ছেড়ে দিন (Release USDT)
+                            </button>
+                        ` : ''}
+                    </div>
+                ` : `
+                    <div class="p-2.5 bg-emerald-100 dark:bg-emerald-950/60 border border-emerald-300 rounded-xl text-center text-xs font-black text-emerald-700 dark:text-emerald-300">
+                        ✓ ট্রেডটি সফলভাবে সম্পন্ন হয়েছে! (Completed)
+                    </div>
+                `}
+
+                <div id="p2p-messages-box" class="h-44 overflow-y-auto custom-scrollbar p-3 bg-gray-50 dark:bg-zinc-950 rounded-2xl border space-y-2">
+                    ${trade.messages.map(m => `
+                        <div class="${m.sender === state.userProfile.name ? 'text-right' : 'text-left'}">
+                            <span class="text-[9px] text-gray-400 block">${m.sender} • ${m.time || ''}</span>
+                            <div class="inline-block px-3 py-1.5 text-xs font-semibold max-w-[80%] ${m.sender === state.userProfile.name ? 'chat-bubble-me' : 'chat-bubble-other'}">
+                                ${m.text}
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+
+                <div class="flex gap-2">
+                    <input type="text" id="p2p-chat-input" placeholder="মেসেজ লিখুন..." onkeypress="if(event.key==='Enter') sendP2PMessage('${trade.id}')" class="flex-1 bg-gray-50 dark:bg-zinc-950 border p-2.5 rounded-xl text-xs font-bold focus:outline-none">
+                    <button onclick="sendP2PMessage('${trade.id}')" class="bg-blue-600 hover:bg-blue-500 text-white px-4 rounded-xl font-bold text-xs shadow">
+                        <i class="fa-solid fa-paper-plane"></i>
+                    </button>
+                </div>
+
+                <div class="pt-2 border-t text-center flex justify-between items-center">
+                    <button onclick="openP2PTradingModal('my_trades')" class="text-[11px] font-bold text-gray-500 hover:underline">
+                        ← হিস্ট্রিতে ফিরে যান
+                    </button>
+                    <span class="text-xs font-black text-amber-500">${trade.status}</span>
+                </div>
+            </div>
+        `);
+
+        setTimeout(() => {
+            const chatBox = document.getElementById('p2p-messages-box');
+            if (chatBox) chatBox.scrollTop = chatBox.scrollHeight;
+        }, 50);
+    }
+
+    function markP2PTradeAsPaid(tradeId) {
+        const trade = state.p2pTrades.find(t => t.id === tradeId);
+        if (trade) {
+            trade.status = 'Paid';
+            trade.isSeen = false;
+            trade.lastSenderId = state.userProfile.id;
+            trade.messages.push({
+                sender: "System",
+                text: `বায়ার ${state.userProfile.name} পেমেন্ট সম্পন্ন করেছেন বলে নিশ্চিত করেছেন। সেলার বিকাশ/নগদ চেক করে 'Release USDT' বাটনে চাপ দিন।`,
+                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            });
+            saveMasterState();
+            openP2PChatRoom(tradeId);
+        }
+    }
+
+    function releaseP2PUSDTAutomatically(tradeId) {
+        const trade = state.p2pTrades.find(t => t.id === tradeId);
+        if (!trade) return;
+
+        if (!confirm(`আপনি কি নিশ্চিত যে বিকাশ/নগদে ৳${trade.amountBDT.toFixed(2)} টাকা সঠিকভাবে পেয়েছেন? পেয়ে থাকলে OK চাপুন।`)) return;
+
+        const seller = state.allUsers.find(u => u.id === trade.sellerId);
+        const buyer = state.allUsers.find(u => u.id === trade.buyerId);
+
+        if (seller && buyer) {
+            if (seller.usdtBalance >= trade.amountUSD) {
+                seller.usdtBalance -= trade.amountUSD;
+            }
+            buyer.usdtBalance += trade.amountUSD;
+
+            if (state.userProfile.id === seller.id) state.userProfile.usdtBalance = seller.usdtBalance;
+            if (state.userProfile.id === buyer.id) state.userProfile.usdtBalance = buyer.usdtBalance;
+
+            trade.status = 'Completed';
+            trade.isSeen = false;
+            trade.lastSenderId = state.userProfile.id;
+            trade.messages.push({
+                sender: "System",
+                text: `✓ সেলার পেমেন্ট নিশ্চিত করেছেন! সিস্টেম অটোমেটিক সেলারের একাউন্ট থেকে $${trade.amountUSD} USDT বায়ারের একাউন্টে পাঠিয়া দিয়েছে।`,
+                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            });
+
+            saveMasterState();
+            openP2PChatRoom(tradeId);
+            alert(`সফল হয়েছে! $${trade.amountUSD} USDT বায়ারের একাউন্টে অটোমেটিক ট্রান্সফার করা হয়েছে।`);
+        }
+    }
+
+    function sendP2PMessage(tradeId) {
+        const input = document.getElementById('p2p-chat-input');
+        const txt = input ? input.value.trim() : '';
+        if (!txt) return;
+
+        const trade = state.p2pTrades.find(t => t.id === tradeId);
+        if (trade) {
+            trade.isSeen = false;
+            trade.lastSenderId = state.userProfile.id;
+            trade.messages.push({
+                sender: state.userProfile.name,
+                text: txt,
+                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            });
+            saveMasterState();
+            openP2PChatRoom(tradeId);
+        }
+    }
+
+    // --- GAME TOP-UP MODAL ---
+    function openGamingStoreModal(defaultGame = 'pubg') {
+        if (!checkFeatureFlag('gaming', 'গেম টপ-আপ')) return;
+        state.selectedGame = defaultGame;
+        state.selectedGamePkg = null;
+        renderGamingModalUI();
+    }
+
+    function renderGamingModalUI() {
+        const pkgs = state.gamePackages[state.selectedGame] || [];
+        showModal("Midasbuy - গেম টপ-আপ স্টোর", `
+            <div class="space-y-4">
+                <div class="grid grid-cols-2 gap-2">
+                    ${games.map(g => `
+                        <button onclick="changeGameTab('${g.id}')" class="p-3 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 border ${state.selectedGame === g.id ? 'bg-emerald-800 text-white border-emerald-800 shadow-md' : 'bg-gray-50 dark:bg-zinc-900 text-gray-700 dark:text-zinc-300'}">
+                            <i class="fa-solid ${g.icon}"></i>
+                            <span>${g.name}</span>
+                        </button>`).join('')}
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">প্যাকেজ বেছে নিন</label>
+                    <div class="grid grid-cols-2 gap-2.5">
+                        ${pkgs.map(p => `
+                            <div onclick="selectGamePackage('${p.id}')" id="gpkg-${p.id}" class="midas-card p-3 bg-gray-50 dark:bg-zinc-900 rounded-2xl flex flex-col justify-between border border-gray-200 dark:border-zinc-800">
+                                <span class="text-xs font-black text-gray-900 dark:text-zinc-100">${p.name}</span>
+                                <span class="text-xs font-extrabold text-emerald-600 mt-1">৳ ${p.price} BDT</span>
+                            </div>`).join('')}
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">প্লেয়ার আইডি (Player UID)</label>
+                    <input type="text" id="game-player-uid" placeholder="যেমন: 51290318" class="w-full bg-gray-50 dark:bg-zinc-950 border py-3.5 px-4 rounded-xl text-xs font-bold">
+                </div>
+
+                <button onclick="processGamingTopup()" class="w-full bg-emerald-700 text-white font-extrabold py-4 rounded-xl text-xs uppercase shadow hover:bg-emerald-600 transition">
+                    টপ-আপ অর্ডার কনফার্ম করুন
+                </button>
+            </div>
+        `);
+    }
+
+    function changeGameTab(gameId) {
+        state.selectedGame = gameId;
+        renderGamingModalUI();
+    }
+
+    function selectGamePackage(pkgId) {
+        state.selectedGamePkg = pkgId;
+        document.querySelectorAll('[id^="gpkg-"]').forEach(el => el.classList.remove('selected'));
+        const el = document.getElementById('gpkg-' + pkgId);
+        if (el) el.classList.add('selected');
+    }
+
+    function processGamingTopup() {
+        if (!state.selectedGamePkg) return alert("একটি প্যাকেজ সিলেক্ট করুন!");
+        const uid = document.getElementById('game-player-uid').value.trim();
+        if (!uid) return alert("প্লেয়ার আইডি প্রবেশ করান!");
+
+        const pkgs = state.gamePackages[state.selectedGame] || [];
+        const pkg = pkgs.find(p => p.id === state.selectedGamePkg);
+
+        if (pkg.price > state.userProfile.balance) return alert("আপনার ওয়ালেটে পর্যাপ্ত টাকা নেই!");
+
+        state.userProfile.balance -= pkg.price;
+        state.transactions.unshift({
+            id: "TXN_" + Date.now().toString().slice(-4),
+            title: `Game TopUp (${pkg.name})`,
+            amount: pkg.price,
+            type: "Gaming",
+            timestamp: new Date().toISOString().replace('T', ' ').slice(0, 16)
+        });
+
+        saveMasterState();
+        closeModal();
+        alert(`টপ-আপ অর্ডার সফল হয়েছে! Player UID: ${uid}`);
+        renderDashboard();
+    }
+
+    // --- MOBILE RECHARGE SYSTEM ---
+    function openMobileRechargeModal() {
+        if (!checkFeatureFlag('recharge', 'মোবাইল রিচার্জ')) return;
+        showModal("মোবাইল রিচার্জ", `
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-2">অপারেটর বেছে নিন</label>
+                    <div class="grid grid-cols-4 gap-2">
+                        ${operators.map(op => `
+                            <div onclick="selectOperator('${op.id}')" id="op-${op.id}" class="operator-badge ${state.selectedOperator === op.id ? 'selected' : ''} flex flex-col items-center gap-1 p-2 bg-gray-50 dark:bg-zinc-900 rounded-xl border border-gray-200 dark:border-zinc-800">
+                                <div class="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-black" style="background-color:${op.color}">${op.name.charAt(0)}</div>
+                                <span class="text-[9px] font-bold">${op.name}</span>
+                            </div>`).join('')}
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">মোবাইল নম্বর</label>
+                    <input type="tel" id="recharge-phone" placeholder="01700000000" class="w-full bg-gray-50 dark:bg-zinc-950 border py-3.5 px-4 rounded-xl text-sm font-bold">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">টাকার পরিমাণ (BDT)</label>
+                    <input type="number" id="recharge-amount" placeholder="৳ 50" class="w-full bg-gray-50 dark:bg-zinc-950 border py-3.5 px-4 rounded-xl text-sm font-bold">
+                    <div class="flex gap-1.5 mt-2">
+                        ${[20, 50, 100, 200, 500, 1000].map(amt => `
+                            <button onclick="document.getElementById('recharge-amount').value=${amt}" class="flex-1 bg-gray-100 dark:bg-zinc-800 py-1.5 rounded-lg text-[11px] font-bold text-emerald-600">৳${amt}</button>
+                        `).join('')}
+                    </div>
+                </div>
+
+                <button onclick="processMobileRecharge()" class="w-full bg-emerald-700 text-white font-extrabold py-4 rounded-xl text-xs uppercase shadow hover:bg-emerald-600 transition">
+                    রিচার্জ করুন
+                </button>
+            </div>
+        `);
+    }
+
+    function selectOperator(opId) {
+        state.selectedOperator = opId;
+        document.querySelectorAll('[id^="op-"]').forEach(el => el.classList.remove('selected'));
+        const target = document.getElementById('op-' + opId);
+        if (target) target.classList.add('selected');
+    }
+
+    function processMobileRecharge() {
+        const phone = document.getElementById('recharge-phone').value.trim();
+        const amt = parseFloat(document.getElementById('recharge-amount').value);
+
+        if (!phone || isNaN(amt) || amt < 10) return alert("সঠিক মোবাইল নম্বর ও নূন্যতম ৳১০ টাকা লিখুন।");
+        if (amt > state.userProfile.balance) return alert("আপনার ওয়ালেটে পর্যাপ্ত ব্যালেন্স নেই!");
+
+        state.userProfile.balance -= amt;
+        state.transactions.unshift({
+            id: "TXN_" + Date.now().toString().slice(-4),
+            title: `Mobile Recharge (${phone})`,
+            amount: amt,
+            type: "Recharge",
+            timestamp: new Date().toISOString().replace('T', ' ').slice(0, 16)
+        });
+
+        saveMasterState();
+        closeModal();
+        alert(`৳ ${amt} রিচার্জ সফল হয়েছে!`);
+        renderDashboard();
+    }
+
+    // --- DEPOSIT SYSTEM ---
+    function openAddMoneyModal() {
+        if (!checkFeatureFlag('deposit', 'ডিপোজিট')) return;
+        showModal("ডিপোজিট করুন", `
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">পেমেন্ট মেথড সিলেক্ট করুন</label>
+                    <select id="dep-gateway" onchange="updateGatewayInstructions()" class="w-full bg-gray-50 dark:bg-zinc-950 border py-3 px-4 rounded-xl text-xs font-bold">
+                        ${state.paymentGateways.map(g => `<option value="${g.id}">${g.name} (${g.number})</option>`).join('')}
+                    </select>
+                </div>
+
+                <div id="gateway-info-box" class="p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 rounded-xl text-xs space-y-1"></div>
+
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">টাকার পরিমাণ (BDT)</label>
+                    <input type="number" id="add-amt" placeholder="1000" class="w-full bg-gray-50 dark:bg-zinc-950 border py-3 px-4 rounded-xl text-sm font-bold">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">ট্রানজেকশন আইডি (TrxID)</label>
+                    <input type="text" id="add-trx" placeholder="যেমন: 9J812390A" class="w-full bg-gray-50 dark:bg-zinc-950 border py-3 px-4 rounded-xl text-xs font-bold uppercase">
+                </div>
+
+                <button onclick="processAddMoney()" class="w-full bg-emerald-700 text-white font-extrabold py-3.5 rounded-xl text-xs uppercase shadow">ডিপোজিট রিকোয়েস্ট জমা দিন</button>
+            </div>`);
+        updateGatewayInstructions();
+    }
+
+    function updateGatewayInstructions() {
+        const gwId = document.getElementById('dep-gateway').value;
+        const gw = state.paymentGateways.find(g => g.id === gwId);
+        if (gw) {
+            document.getElementById('gateway-info-box').innerHTML = `
+                <p class="font-bold text-amber-900 dark:text-amber-300">নাম্বার: <span class="text-sm font-black text-emerald-600">${gw.number}</span></p>
+                <p class="text-[10px] text-gray-500 dark:text-zinc-400">${gw.instructions}</p>
+            `;
+        }
+    }
+
+    function processAddMoney() {
+        const amt = parseFloat(document.getElementById('add-amt').value);
+        const trx = document.getElementById('add-trx').value.trim();
+
+        if (isNaN(amt) || amt <= 0 || !trx) return alert("টাকার পরিমাণ ও TrxID সঠিকভাবে প্রদান করুন।");
+
+        state.pendingRequests.unshift({
+            id: "REQ_" + Date.now().toString().slice(-4),
+            userId: state.userProfile.id,
+            userName: state.userProfile.name,
+            type: "Deposit",
+            amountBDT: amt,
+            usdtAmount: 0,
+            trxId: trx,
+            status: "Pending",
+            timestamp: new Date().toISOString().replace('T', ' ').slice(0, 16)
+        });
+
+        saveMasterState();
+        closeModal();
+        alert(`৳ ${amt} ডিপোজিট রিকোয়েস্ট জমা নেওয়া হয়েছে।`);
+        renderDashboard();
+    }
+
+    function openWithdrawModal() {
+        if (!checkFeatureFlag('withdraw', 'উইথড্র')) return;
+        showModal("ক্যাশ আউট", `
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">ক্যাশ আউট মেথড</label>
+                    <select id="wd-gateway" class="w-full bg-gray-50 dark:bg-zinc-950 border py-3 px-4 rounded-xl text-xs font-bold">
+                        <option value="bKash">bKash Personal</option>
+                        <option value="Nagad">Nagad Personal</option>
+                        <option value="Rocket">Rocket Personal</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">একাউন্ট নম্বর</label>
+                    <input type="text" id="wd-acc" placeholder="01700000000" class="w-full bg-gray-50 dark:bg-zinc-950 border py-3 px-4 rounded-xl text-xs font-bold">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">টাকার পরিমাণ (BDT)</label>
+                    <input type="number" id="wd-amt" placeholder="500" class="w-full bg-gray-50 dark:bg-zinc-950 border py-3 px-4 rounded-xl text-sm font-bold">
+                </div>
+                <button onclick="processWithdraw()" class="w-full bg-emerald-700 text-white font-extrabold py-3.5 rounded-xl text-xs uppercase">উইথড্র রিকোয়েস্ট পাঠান</button>
+            </div>`);
+    }
+
+    function processWithdraw() {
+        const amt = parseFloat(document.getElementById('wd-amt').value);
+        const acc = document.getElementById('wd-acc').value.trim();
+        if (isNaN(amt) || amt <= 0 || !acc || state.userProfile.balance < amt) return alert("অপর্যাপ্ত ব্যালেন্স বা ভুল তথ্য।");
+
+        state.pendingRequests.unshift({
+            id: "REQ_" + Date.now().toString().slice(-4),
+            userId: state.userProfile.id,
+            userName: state.userProfile.name,
+            type: "Withdraw",
+            amountBDT: amt,
+            trxId: acc,
+            status: "Pending",
+            timestamp: new Date().toISOString().replace('T', ' ').slice(0, 16)
+        });
+
+        saveMasterState();
+        closeModal();
+        alert(`৳ ${amt} উইথড্র রিকোয়েস্ট পাঠানো হয়েছে!`);
+        renderDashboard();
+    }
+
+    // --- SEND MONEY WITH USER ID OR PHONE NUMBER ---
+    function openSendMoneyModal() {
+        if (!checkFeatureFlag('sendMoney', 'টাকা পাঠান')) return;
+        showModal("টাকা পাঠান (Send Money)", `
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">প্রাপকের ইউজার আইডি / মোবাইল নম্বর</label>
+                    <input type="text" id="send-target" placeholder="যেমন: USER_123456 অথবা 01700000000" class="w-full bg-gray-50 dark:bg-zinc-950 border py-3 px-4 rounded-xl text-xs font-bold">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">টাকার পরিমাণ (BDT)</label>
+                    <input type="number" id="send-amt" placeholder="500" class="w-full bg-gray-50 dark:bg-zinc-950 border py-3 px-4 rounded-xl text-sm font-bold">
+                </div>
+                <button onclick="processSendMoney()" class="w-full bg-emerald-700 text-white font-bold py-3.5 rounded-xl text-xs uppercase shadow">
+                    ইনস্ট্যান্ট ট্রান্সফার করুন
+                </button>
+            </div>`);
+    }
+
+    function processSendMoney() {
+        const target = document.getElementById('send-target').value.trim();
+        const amt = parseFloat(document.getElementById('send-amt').value);
+
+        if (!target) return alert("প্রাপকের ইউজার আইডি বা মোবাইল নম্বর দিন!");
+        if (isNaN(amt) || amt <= 0) return alert("সঠিক টাকার পরিমাণ দিন!");
+        if (amt > state.userProfile.balance) return alert("আপনার ওয়ালেটে পর্যাপ্ত ব্যালেন্স নেই!");
+
+        // Find recipient by User ID, Phone, or Email
+        const recipient = state.allUsers.find(u => 
+            u.id.toLowerCase() === target.toLowerCase() || 
+            (u.phone && u.phone === target) ||
+            (u.email && u.email.toLowerCase() === target.toLowerCase())
+        );
+
+        if (!recipient) {
+            return alert("প্রাপকের অ্যাকাউন্ট বা ইউজার আইডি পাওয়া যায়নি!");
+        }
+
+        if (recipient.id === state.userProfile.id) {
+            return alert("নিজের একাউন্টে সেন্ড মানি করা সম্ভব নয়!");
+        }
+
+        // Deduct from Sender & Credit to Recipient
+        state.userProfile.balance -= amt;
+        recipient.balance = (recipient.balance || 0) + amt;
+
+        // Record Transaction for Sender
+        state.transactions.unshift({ 
+            id: "TXN_" + Date.now().toString().slice(-4), 
+            title: `টাকা পাঠানো হয়েছে (${recipient.name})`, 
+            amount: amt, 
+            type: "Send", 
+            timestamp: new Date().toISOString().replace('T', ' ').slice(0, 16) 
+        });
+
+        saveMasterState();
+        closeModal();
+        alert(`৳${amt} টাকা সফলভাবে ${recipient.name} (ID: ${recipient.id}) এর কাছে পাঠানো হয়েছে!`);
+        renderDashboard();
+    }
+
+    function renderServices() {
+        document.getElementById('main-content').innerHTML = `
+            <h2 class="text-base font-black mb-4">সকল সার্ভিসসমূহ</h2>
+            <div class="grid grid-cols-2 gap-3">
+                <div onclick="openGamingStoreModal()" class="grid-btn p-4 bg-orange-50 dark:bg-orange-950/20 rounded-2xl flex items-center gap-3">
+                    <i class="fa-solid fa-gamepad text-2xl text-orange-500"></i>
+                    <div><h4 class="text-xs font-bold">গেম টপ-আপ</h4><span class="text-[10px] text-gray-400">PUBG, FreeFire</span></div>
+                </div>
+                <div onclick="openMobileRechargeModal()" class="grid-btn p-4 bg-purple-50 dark:bg-purple-950/20 rounded-2xl flex items-center gap-3">
+                    <i class="fa-solid fa-mobile-screen text-2xl text-purple-500"></i>
+                    <div><h4 class="text-xs font-bold">মোবাইল রিচার্জ</h4><span class="text-[10px] text-gray-400">সকল অপারেটর</span></div>
+                </div>
+                <div onclick="openDataPackModal()" class="grid-btn p-4 bg-teal-50 dark:bg-teal-950/20 rounded-2xl flex items-center gap-3">
+                    <i class="fa-solid fa-wifi text-2xl text-teal-500"></i>
+                    <div><h4 class="text-xs font-bold">ডাটা প্যাক</h4><span class="text-[10px] text-gray-400">ইন্টারনেট অফার</span></div>
+                </div>
+                <div onclick="openUSDTModal()" class="grid-btn p-4 bg-amber-50 dark:bg-amber-950/20 rounded-2xl flex items-center gap-3">
+                    <i class="fa-solid fa-right-left text-2xl text-amber-500"></i>
+                    <div><h4 class="text-xs font-bold">ট্রেড USDT</h4><span class="text-[10px] text-gray-400">ডলার কেনাবেচা</span></div>
+                </div>
+            </div>`;
+    }
+
+    function renderTransactions() {
+        document.getElementById('main-content').innerHTML = `
+            <h2 class="text-base font-black mb-4">সকল লেনদেন ইতিহাস</h2>
+            <div class="space-y-2">
+                ${renderUserTransactionsList(20)}
+            </div>`;
+    }
+
+    // Modal Utility Helpers
+    function showModal(title, bodyHtml) {
+        document.getElementById('modal-title').innerText = title;
+        document.getElementById('modal-body').innerHTML = bodyHtml;
+        document.getElementById('modal-container').classList.remove('hidden');
+    }
+    function closeModal() { 
+        document.getElementById('modal-container').classList.add('hidden'); 
+        updateP2PUnreadDot();
+    }
+
+    // Init App Instantly
+    window.addEventListener('DOMContentLoaded', initApp);
+</script>
+</body>
+</html>
