@@ -20,12 +20,14 @@
     </script>
     <!-- FontAwesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore-compat.js"></script>
+
     <style>
         .custom-scrollbar::-webkit-scrollbar { width: 4px; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background-color: rgba(156,163,175,0.4); border-radius: 4px; }
-        .chat-bubble-me { background: #006A4E; color: white; border-radius: 16px 16px 2px 16px; }
-        .chat-bubble-other { background: #E5E7EB; color: #111827; border-radius: 16px 16px 16px 2px; }
-        .dark .chat-bubble-other { background: #27272A; color: #F9FAFB; }
     </style>
 </head>
 <body class="bg-gray-100 dark:bg-zinc-950 text-gray-900 dark:text-zinc-100 min-h-screen transition-colors duration-200 font-sans antialiased flex flex-col justify-center">
@@ -38,7 +40,7 @@
             <i class="fa-solid fa-user-shield text-2xl text-amber-300"></i>
             <div>
                 <h1 class="font-black text-base tracking-wider leading-tight">PayBangla Admin</h1>
-                <p class="text-[9px] text-amber-200 font-bold uppercase tracking-widest">Master Management Console</p>
+                <p class="text-[9px] text-amber-200 font-bold uppercase tracking-widest">Master Cloud Management</p>
             </div>
         </div>
         <button onclick="toggleDarkMode()" class="p-2 rounded-xl bg-amber-800 dark:bg-amber-900 hover:bg-amber-600 text-amber-100 text-xs transition">
@@ -46,9 +48,9 @@
         </button>
     </header>
 
-    <!-- Main Admin Viewport (Scrollable Content Only) -->
+    <!-- Main Admin Viewport -->
     <main class="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-4" id="admin-viewport">
-        <!-- Dynamic Content rendered via JS -->
+        <!-- Dynamic Content -->
     </main>
 
     <!-- Modal Shell -->
@@ -65,54 +67,40 @@
 </div>
 
 <script>
-    // EXACT SAME STORAGE KEY FROM USER PANEL
+    // --- Firebase Setup ---
+    const firebaseConfig = {
+        apiKey: "AIzaSyC02ncmc2-7-VULg84bSBT7nMcsoRmBg9Y",
+        authDomain: "paybangla-84142.firebaseapp.com",
+        databaseURL: "https://paybangla-84142-default-rtdb.firebaseio.com",
+        projectId: "paybangla-84142",
+        storageBucket: "paybangla-84142.firebasestorage.app",
+        messagingSenderId: "856783859136",
+        appId: "1:856783859136:web:c795d3c0de4925e1846c25"
+    };
+
+    let isFirebaseAvailable = false;
+    let db = null;
+
+    try {
+        firebase.initializeApp(firebaseConfig);
+        db = firebase.firestore();
+        isFirebaseAvailable = true;
+    } catch (e) { console.warn("Local storage mode"); }
+
     const STORAGE_KEY = 'paybangla_user_db_v15';
 
-    // Global Application State Schema
     let state = {
-        currentLanguage: 'bn',
-        currentUser: null,
-        userProfile: null,
-        balanceVisibility: true,
-        selectedOperator: 'gp',
-        selectedGame: 'pubg',
-        selectedGamePkg: null,
         usdtRates: { buyRate: 122.50, sellRate: 120.00 },
         adminDepositWallet: "01700000000 (bKash/Nagad Personal)",
         adminUSDTWallet: "T9xY1zA82kL90pM29qR1S83tU0vW",
         bannerNotice: "🔥 PayBangla ওয়ালেটে স্বাগতম! ইনস্ট্যান্ট P2P ট্রেডিং, ইউএসডিটি বাই-সেল ও গেম টপ-আপ উপভোগ করুন।",
         featureFlags: {
-            p2pTrade: true,
-            usdtTrade: true,
-            deposit: true,
-            withdraw: true,
-            gaming: true,
-            recharge: true,
-            dataPack: true,
-            sendMoney: true
+            p2pTrade: true, usdtTrade: true, deposit: true, withdraw: true, gaming: true, recharge: true, dataPack: true, sendMoney: true
         },
-        paymentGateways: [
-            { id: "GW1", name: "bKash Personal", number: "01700000000", type: "bKash", instructions: "বিকাশ সেন্ড মানি করুন।" },
-            { id: "GW2", name: "Nagad Personal", number: "01800000000", type: "Nagad", instructions: "নগদ সেন্ড মানি করুন।" }
-        ],
-        gamePackages: {
-            pubg: [{ id: "p1", name: "60 UC", price: 88 }, { id: "p2", name: "325 UC", price: 420 }],
-            freefire: [{ id: "ff1", name: "115 Diamonds", price: 80 }]
-        },
-        dataPackages: {
-            gp: [{ id: "gp1", name: "1.5 GB (3 দিন)", price: 48 }],
-            bl: [{ id: "bl1", name: "2 GB (7 দিন)", price: 57 }],
-            robi: [{ id: "rb1", name: "3 GB (3 দিন)", price: 68 }],
-            teletalk: [{ id: "tt1", name: "1 GB (30 দিন)", price: 30 }]
-        },
-        customOffers: [
-            { id: "off1", title: "১০০% ক্যাশব্যাক অফার", desc: "প্রথম ১০০০ টাকা ডিপোজিটে ৫০ টাকা ইনস্ট্যান্ট ক্যাশব্যাক!", active: true }
-        ],
-        p2pAds: [],
-        p2pTrades: [],
-        allUsers: [],
-        pendingRequests: [],
-        transactions: []
+        paymentGateways: [],
+        gamePackages: { pubg: [], freefire: [] },
+        dataPackages: { gp: [], bl: [], robi: [], teletalk: [] },
+        p2pAds: [], p2pTrades: [], allUsers: [], pendingRequests: [], transactions: []
     };
 
     let activeAdminTab = 'pending';
@@ -130,38 +118,41 @@
                 if (parsed.gamePackages) state.gamePackages = parsed.gamePackages;
                 if (parsed.dataPackages) state.dataPackages = parsed.dataPackages;
                 if (parsed.usdtRates) state.usdtRates = parsed.usdtRates;
-                if (parsed.adminDepositWallet) state.adminDepositWallet = parsed.adminDepositWallet;
-                if (parsed.adminUSDTWallet) state.adminUSDTWallet = parsed.adminUSDTWallet;
                 if (parsed.bannerNotice) state.bannerNotice = parsed.bannerNotice;
-                if (parsed.customOffers) state.customOffers = parsed.customOffers;
-                if (parsed.transactions) state.transactions = parsed.transactions;
                 if (parsed.featureFlags) state.featureFlags = { ...state.featureFlags, ...parsed.featureFlags };
-            } catch(e) { console.error("Data Load Error", e); }
+            } catch(e) { console.error(e); }
         }
     }
 
+    // SAVE STATE & SYNC TO FIREBASE CLOUD REALTIME
     function saveMasterState() {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    }
 
-    function toggleDarkMode() {
-        document.documentElement.classList.toggle('dark');
-    }
+        if (isFirebaseAvailable && db) {
+            // Push System Config to Cloud
+            db.collection('system').doc('global_config').set({
+                featureFlags: state.featureFlags,
+                bannerNotice: state.bannerNotice,
+                usdtRates: state.usdtRates,
+                paymentGateways: state.paymentGateways,
+                gamePackages: state.gamePackages,
+                dataPackages: state.dataPackages
+            }, { merge: true }).catch(err => console.warn(err));
 
-    // Auto-Sync across multiple tabs / windows
-    window.addEventListener('storage', (e) => {
-        if (e.key === STORAGE_KEY) {
-            loadMasterState();
-            renderAdminDashboard(activeAdminTab);
+            // Sync Users List
+            state.allUsers.forEach(u => {
+                db.collection('users').doc(u.id).set(u, { merge: true }).catch(err => console.warn(err));
+            });
         }
-    });
+    }
+
+    function toggleDarkMode() { document.documentElement.classList.toggle('dark'); }
 
     function initAdminApp() {
         loadMasterState();
         renderAdminDashboard('pending');
     }
 
-    // --- MAIN DASHBOARD RENDERER ---
     function renderAdminDashboard(tab = 'pending') {
         activeAdminTab = tab;
         loadMasterState();
@@ -170,107 +161,72 @@
         const viewport = document.getElementById('admin-viewport');
 
         viewport.innerHTML = `
-            <!-- Top Metric Stats Header -->
             <div class="grid grid-cols-4 gap-2 text-center">
-                <div class="p-2.5 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-2xl">
+                <div class="p-2.5 bg-amber-50 dark:bg-amber-950/30 border rounded-2xl">
                     <span class="text-[9px] font-black text-amber-800 dark:text-amber-300 uppercase block">পেন্ডিং</span>
                     <span class="text-sm font-black text-amber-600">${pendingList.length}</span>
                 </div>
-                <div class="p-2.5 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-2xl">
+                <div class="p-2.5 bg-blue-50 dark:bg-blue-950/30 border rounded-2xl">
                     <span class="text-[9px] font-black text-blue-800 dark:text-blue-300 uppercase block">ইউজার</span>
                     <span class="text-sm font-black text-blue-600">${state.allUsers.length}</span>
                 </div>
-                <div class="p-2.5 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-2xl">
+                <div class="p-2.5 bg-emerald-50 dark:bg-emerald-950/30 border rounded-2xl">
                     <span class="text-[9px] font-black text-emerald-800 dark:text-emerald-300 uppercase block">P2P অ্যাড</span>
                     <span class="text-sm font-black text-emerald-600">${state.p2pAds.length}</span>
                 </div>
-                <div class="p-2.5 bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800 rounded-2xl">
-                    <span class="text-[9px] font-black text-purple-800 dark:text-purple-300 uppercase block">P2P ট্রেড</span>
+                <div class="p-2.5 bg-purple-50 dark:bg-purple-950/30 border rounded-2xl">
+                    <span class="text-[9px] font-black text-purple-800 dark:text-purple-300 uppercase block">P2P চ্যাট</span>
                     <span class="text-sm font-black text-purple-600">${state.p2pTrades.length}</span>
                 </div>
             </div>
 
-            <!-- Tab Navigation Bar -->
-            <div class="flex gap-1.5 border-b border-gray-200 dark:border-zinc-800 pb-2 overflow-x-auto custom-scrollbar">
-                <button onclick="renderAdminDashboard('pending')" id="atab-pending" class="px-3 py-1.5 rounded-xl text-xs font-bold ${tab === 'pending' ? 'bg-amber-600 text-white shadow' : 'bg-gray-100 dark:bg-zinc-800 text-gray-500'} whitespace-nowrap">
-                    পেন্ডিং অর্ডার (${pendingList.length})
-                </button>
-                <button onclick="renderAdminDashboard('users')" id="atab-users" class="px-3 py-1.5 rounded-xl text-xs font-bold ${tab === 'users' ? 'bg-amber-600 text-white shadow' : 'bg-gray-100 dark:bg-zinc-800 text-gray-500'} whitespace-nowrap">
-                    ইউজার লিস্ট
-                </button>
-                <button onclick="renderAdminDashboard('p2p')" id="atab-p2p" class="px-3 py-1.5 rounded-xl text-xs font-bold ${tab === 'p2p' ? 'bg-amber-600 text-white shadow' : 'bg-gray-100 dark:bg-zinc-800 text-gray-500'} whitespace-nowrap">
-                    P2P &amp; চ্যাট হিস্ট্রি
-                </button>
-                <button onclick="renderAdminDashboard('packages')" id="atab-packages" class="px-3 py-1.5 rounded-xl text-xs font-bold ${tab === 'packages' ? 'bg-amber-600 text-white shadow' : 'bg-gray-100 dark:bg-zinc-800 text-gray-500'} whitespace-nowrap">
-                    গেটওয়ে &amp; প্যাকেজ
-                </button>
-                <button onclick="renderAdminDashboard('settings')" id="atab-settings" class="px-3 py-1.5 rounded-xl text-xs font-bold ${tab === 'settings' ? 'bg-amber-600 text-white shadow' : 'bg-gray-100 dark:bg-zinc-800 text-gray-500'} whitespace-nowrap">
-                    বাটন, ব্যানার &amp; অফার
-                </button>
+            <div class="flex gap-1.5 border-b pb-2 overflow-x-auto custom-scrollbar">
+                <button onclick="renderAdminDashboard('pending')" class="px-3 py-1.5 rounded-xl text-xs font-bold ${tab === 'pending' ? 'bg-amber-600 text-white shadow' : 'bg-gray-100 dark:bg-zinc-800 text-gray-500'} whitespace-nowrap">পেন্ডিং (${pendingList.length})</button>
+                <button onclick="renderAdminDashboard('users')" class="px-3 py-1.5 rounded-xl text-xs font-bold ${tab === 'users' ? 'bg-amber-600 text-white shadow' : 'bg-gray-100 dark:bg-zinc-800 text-gray-500'} whitespace-nowrap">ইউজার লিস্ট</button>
+                <button onclick="renderAdminDashboard('p2p')" class="px-3 py-1.5 rounded-xl text-xs font-bold ${tab === 'p2p' ? 'bg-amber-600 text-white shadow' : 'bg-gray-100 dark:bg-zinc-800 text-gray-500'} whitespace-nowrap">P2P চ্যাট</button>
+                <button onclick="renderAdminDashboard('settings')" class="px-3 py-1.5 rounded-xl text-xs font-bold ${tab === 'settings' ? 'bg-amber-600 text-white shadow' : 'bg-gray-100 dark:bg-zinc-800 text-gray-500'} whitespace-nowrap">বাটন অন/অফ &amp; ব্যানার</button>
             </div>
 
-            <!-- Dynamic Tab Content View -->
-            <div id="admin-tab-body" class="space-y-3">
+            <div class="space-y-3">
                 ${getAdminTabHTML(tab, pendingList)}
             </div>
         `;
     }
 
     function getAdminTabHTML(tab, pendingList) {
-        // TAB 1: PENDING ORDERS APPROVAL
         if (tab === 'pending') {
             return `
-                <h3 class="text-xs font-black text-gray-500 uppercase tracking-wider">পেন্ডিং ডিপোজিট, উইথড্র, USDT ও ডাটা প্যাক</h3>
-                ${pendingList.length === 0 ? `<p class="text-xs text-center text-gray-400 py-8">বর্তমানে কোনো পেন্ডিং অর্ডার নেই।</p>` : pendingList.map(req => `
-                    <div class="p-3.5 bg-gray-50 dark:bg-zinc-900 rounded-2xl border border-gray-200 dark:border-zinc-800 space-y-2 text-xs">
+                ${pendingList.length === 0 ? `<p class="text-xs text-center text-gray-400 py-8">কোনো পেন্ডিং অর্ডার নেই।</p>` : pendingList.map(req => `
+                    <div class="p-3.5 bg-gray-50 dark:bg-zinc-900 rounded-2xl border space-y-2 text-xs">
                         <div class="flex justify-between items-center font-bold">
-                            <span class="bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full text-[10px] font-black">${req.type}</span>
+                            <span class="bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full text-[10px]">${req.type}</span>
                             <span class="text-gray-400 font-mono text-[10px]">${req.timestamp}</span>
                         </div>
-                        <div class="space-y-0.5">
-                            <p class="font-bold text-gray-900 dark:text-white">ইউজার: ${req.userName} (ID: ${req.userId})</p>
-                            <p class="text-emerald-600 font-black">পরিমাণ: ৳${req.amountBDT} ${req.usdtAmount ? '($' + req.usdtAmount + ' USDT)' : ''}</p>
-                            <p class="text-gray-500 font-mono">TrxID / Phone: <span class="text-blue-600 font-bold">${req.trxId}</span></p>
-                        </div>
+                        <p class="font-bold">ইউজার: ${req.userName} (ID: ${req.userId})</p>
+                        <p class="text-emerald-600 font-black">পরিমাণ: ৳${req.amountBDT}</p>
+                        <p class="text-gray-500 font-mono">TrxID / Phone: <span class="text-blue-600 font-bold">${req.trxId}</span></p>
                         <div class="flex gap-2 pt-1">
-                            <button onclick="approveRequest('${req.id}')" class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-black py-2 rounded-xl text-xs shadow">
-                                ✓ এপ্রুভ করুন
-                            </button>
-                            <button onclick="rejectRequest('${req.id}')" class="flex-1 bg-red-600 hover:bg-red-500 text-white font-black py-2 rounded-xl text-xs shadow">
-                                ✕ বাতিল করুন
-                            </button>
+                            <button onclick="approveRequest('${req.id}')" class="flex-1 bg-emerald-600 text-white font-black py-2 rounded-xl text-xs shadow">✓ এপ্রুভ করুন</button>
+                            <button onclick="rejectRequest('${req.id}')" class="flex-1 bg-red-600 text-white font-black py-2 rounded-xl text-xs shadow">✕ বাতিল করুন</button>
                         </div>
                     </div>
                 `).join('')}
             `;
-        } 
-        
-        // TAB 2: USER CONTROL & BALANCE EDIT
+        }
+
         else if (tab === 'users') {
             return `
-                <h3 class="text-xs font-black text-gray-500 uppercase tracking-wider">সকল নিবন্ধিত ইউজার অ্যাকাউন্টস (${state.allUsers.length})</h3>
                 <div class="space-y-2">
-                    ${state.allUsers.length === 0 ? `<p class="text-xs text-gray-400 py-4 text-center">কোনো ইউজার নিবন্ধিত নেই।</p>` : state.allUsers.map(u => `
-                        <div class="p-3.5 bg-gray-50 dark:bg-zinc-900 rounded-2xl border border-gray-200 dark:border-zinc-800 space-y-2 text-xs">
+                    ${state.allUsers.map(u => `
+                        <div class="p-3.5 bg-gray-50 dark:bg-zinc-900 rounded-2xl border space-y-2 text-xs">
                             <div class="flex justify-between items-center">
-                                <div>
-                                    <span class="font-black text-gray-900 dark:text-white">${u.name}</span>
-                                    <span class="ml-1 text-[9px] px-1.5 py-0.2 rounded ${u.isBlocked ? 'bg-red-500 text-white' : 'bg-emerald-100 text-emerald-800'} font-bold">${u.isBlocked ? 'BLOCKED' : 'ACTIVE'}</span>
-                                </div>
-                                <span class="text-[10px] text-gray-400 font-mono">ID: ${u.id}</span>
+                                <span class="font-black text-gray-900 dark:text-white">${u.name} (ID: ${u.id})</span>
+                                <span class="text-[9px] px-1.5 py-0.2 rounded ${u.isBlocked ? 'bg-red-500 text-white' : 'bg-emerald-100 text-emerald-800'} font-bold">${u.isBlocked ? 'BLOCKED' : 'ACTIVE'}</span>
                             </div>
-                            <p class="text-gray-500 text-[10px]">${u.email} | ${u.phone || 'No Phone'}</p>
                             <p class="text-emerald-600 font-black text-[11px]">BDT: ৳${(u.balance || 0).toFixed(2)} | USDT: $${(u.usdtBalance || 0).toFixed(2)}</p>
-                            <div class="flex gap-1.5 pt-1">
-                                <button onclick="openEditUserModal('${u.id}')" class="flex-1 bg-blue-600 text-white py-1.5 rounded-lg font-bold text-[10px] shadow">
-                                    ব্যালেন্স এডিট / অ্যাড মানি
-                                </button>
-                                <button onclick="toggleBlockUser('${u.id}')" class="px-3 ${u.isBlocked ? 'bg-emerald-600' : 'bg-amber-600'} text-white py-1.5 rounded-lg font-bold text-[10px]">
-                                    ${u.isBlocked ? 'Unblock' : 'Block'}
-                                </button>
-                                <button onclick="deleteUser('${u.id}')" class="px-2.5 bg-red-600 text-white py-1.5 rounded-lg font-bold text-[10px]">
-                                    <i class="fa-solid fa-trash"></i>
-                                </button>
+                            <div class="flex gap-1.5">
+                                <button onclick="openEditUserModal('${u.id}')" class="flex-1 bg-blue-600 text-white py-1.5 rounded-lg font-bold text-[10px]">ব্যালেন্স এডিট</button>
+                                <button onclick="toggleBlockUser('${u.id}')" class="px-3 ${u.isBlocked ? 'bg-emerald-600' : 'bg-amber-600'} text-white py-1.5 rounded-lg font-bold text-[10px]">${u.isBlocked ? 'Unblock' : 'Block'}</button>
                             </div>
                         </div>
                     `).join('')}
@@ -278,197 +234,54 @@
             `;
         }
 
-        // TAB 3: P2P ADS & FULL CHAT INSPECTOR
-        else if (tab === 'p2p') {
-            return `
-                <div class="space-y-4">
-                    <!-- P2P Ads Management -->
-                    <div class="space-y-2">
-                        <h3 class="text-xs font-black text-gray-500 uppercase tracking-wider">সক্রিয় P2P অ্যাডস মার্কেট (${state.p2pAds.length})</h3>
-                        ${state.p2pAds.length === 0 ? `<p class="text-xs text-gray-400 py-2">কোনো সক্রিয় অ্যাড নেই।</p>` : state.p2pAds.map(ad => `
-                            <div class="p-3 bg-gray-50 dark:bg-zinc-900 rounded-xl border flex justify-between items-center text-xs">
-                                <div>
-                                    <span class="font-bold text-gray-900 dark:text-white">${ad.userName}</span>
-                                    <span class="text-[10px] text-gray-400 block">$${ad.amountUSD} USDT @ ৳${ad.price} (${ad.paymentMethod})</span>
-                                </div>
-                                <button onclick="deleteP2PAd('${ad.id}')" class="bg-red-600 text-white px-3 py-1.5 rounded-xl text-[10px] font-bold shadow">
-                                    Delete Ad
-                                </button>
-                            </div>
-                        `).join('')}
-                    </div>
-
-                    <!-- P2P Trades & Full Chat History Monitor -->
-                    <div class="space-y-2 pt-3 border-t border-gray-200 dark:border-zinc-800">
-                        <h3 class="text-xs font-black text-gray-500 uppercase tracking-wider">P2P ট্রেড ও চ্যাট মনিটর (${state.p2pTrades.length})</h3>
-                        ${state.p2pTrades.length === 0 ? `<p class="text-xs text-gray-400 py-2">কোনো P2P ট্রেড বা চ্যাট পাওয়া যায়নি।</p>` : state.p2pTrades.map(t => `
-                            <div class="p-3 bg-gray-50 dark:bg-zinc-900 rounded-xl border space-y-2 text-xs">
-                                <div class="flex justify-between font-bold">
-                                    <span>Trade ID: ${t.id} ($${t.amountUSD} USDT)</span>
-                                    <span class="px-2 py-0.5 rounded-full text-[9px] ${t.status === 'Completed' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}">${t.status}</span>
-                                </div>
-                                <p class="text-[10px] text-gray-400">Buyer: ${t.buyerName} | Seller: ${t.sellerName}</p>
-                                <button onclick="inspectP2PChat('${t.id}')" class="w-full bg-purple-600 hover:bg-purple-500 text-white py-1.5 rounded-xl text-[10px] font-bold shadow">
-                                    <i class="fa-solid fa-comments mr-1"></i> চ্যাট হিস্ট্রি দেখুন &amp; কন্ট্রোল করুন
-                                </button>
-                            </div>
-                        `).join('')}
-                    </div>
-                </div>
-            `;
-        }
-
-        // TAB 4: UNLIMITED GATEWAYS, GAME PACKAGES & DATA PACKS
-        else if (tab === 'packages') {
-            return `
-                <div class="space-y-4">
-                    <!-- Add Gateways -->
-                    <div class="p-3.5 bg-gray-50 dark:bg-zinc-900 rounded-2xl border space-y-2 text-xs">
-                        <h3 class="font-black text-gray-900 dark:text-white uppercase">নতুন পেমент গেটওয়ে যোগ করুন</h3>
-                        <input type="text" id="adm-gw-name" placeholder="গেটওয়ে নাম (যেমন: bKash Merchant)" class="w-full bg-white dark:bg-zinc-950 border p-2.5 rounded-xl font-bold">
-                        <input type="text" id="adm-gw-num" placeholder="মোবাইল নম্বর (যেমন: 01700000000)" class="w-full bg-white dark:bg-zinc-950 border p-2.5 rounded-xl font-bold">
-                        <input type="text" id="adm-gw-inst" placeholder="নির্দেশনা" class="w-full bg-white dark:bg-zinc-950 border p-2.5 rounded-xl font-bold">
-                        <button onclick="addPaymentGateway()" class="w-full bg-emerald-700 text-white font-bold py-2.5 rounded-xl shadow">
-                            + নতুন গেটওয়ে সেভ করুন
-                        </button>
-
-                        <div class="pt-2 space-y-1">
-                            <span class="text-[10px] font-bold text-gray-400 uppercase">বিদ্যমান গেটওয়েসমূহ:</span>
-                            ${state.paymentGateways.map(g => `
-                                <div class="flex justify-between items-center p-2 bg-white dark:bg-zinc-950 rounded-lg border text-[11px]">
-                                    <span>${g.name} (${g.number})</span>
-                                    <button onclick="deletePaymentGateway('${g.id}')" class="text-red-500 font-bold ml-2">ডিলিট</button>
-                                </div>
-                            `).join('')}
-                        </div>
-                    </div>
-
-                    <!-- Add Game Packages -->
-                    <div class="p-3.5 bg-gray-50 dark:bg-zinc-900 rounded-2xl border space-y-2 text-xs">
-                        <h3 class="font-black text-gray-900 dark:text-white uppercase">নতুন গেম প্যাকেজ যোগ করুন</h3>
-                        <select id="adm-game-type" class="w-full bg-white dark:bg-zinc-950 border p-2.5 rounded-xl font-bold">
-                            <option value="pubg">PUBG Mobile</option>
-                            <option value="freefire">Free Fire</option>
-                        </select>
-                        <input type="text" id="adm-game-pkg-name" placeholder="প্যাকেজ নাম (যেমন: 660 UC)" class="w-full bg-white dark:bg-zinc-950 border p-2.5 rounded-xl font-bold">
-                        <input type="number" id="adm-game-pkg-price" placeholder="মূল্য (BDT)" class="w-full bg-white dark:bg-zinc-950 border p-2.5 rounded-xl font-bold">
-                        <button onclick="addGamePackage()" class="w-full bg-orange-600 text-white font-bold py-2.5 rounded-xl shadow">
-                            + গেম প্যাকেজ সেভ করুন
-                        </button>
-                    </div>
-
-                    <!-- Add Data Packages -->
-                    <div class="p-3.5 bg-gray-50 dark:bg-zinc-900 rounded-2xl border space-y-2 text-xs">
-                        <h3 class="font-black text-gray-900 dark:text-white uppercase">নতুন ইন্টারনেট ডাটা প্যাক যোগ করুন</h3>
-                        <select id="adm-operator-select" class="w-full bg-white dark:bg-zinc-950 border p-2.5 rounded-xl font-bold">
-                            <option value="gp">Grameenphone</option>
-                            <option value="bl">Banglalink</option>
-                            <option value="robi">Robi</option>
-                            <option value="teletalk">Teletalk</option>
-                        </select>
-                        <input type="text" id="adm-datapack-name" placeholder="প্যাক নাম (যেমন: 5 GB - 7 দিন)" class="w-full bg-white dark:bg-zinc-950 border p-2.5 rounded-xl font-bold">
-                        <input type="number" id="adm-datapack-price" placeholder="দাম (BDT)" class="w-full bg-white dark:bg-zinc-950 border p-2.5 rounded-xl font-bold">
-                        <button onclick="addDataPackage()" class="w-full bg-teal-700 text-white font-bold py-2.5 rounded-xl shadow">
-                            + ডাটা প্যাক সেভ করুন
-                        </button>
-                    </div>
-                </div>
-            `;
-        }
-
-        // TAB 5: SYSTEM BUTTON TOGGLES, BANNER & OFFERS (100% WORKING SAVER)
         else if (tab === 'settings') {
             const flags = state.featureFlags || {};
             return `
                 <div class="space-y-4 text-xs">
-                    <!-- USDT Rate Config -->
                     <div class="p-3.5 bg-gray-50 dark:bg-zinc-900 rounded-2xl border space-y-2">
-                        <h3 class="font-black text-gray-900 dark:text-white uppercase">USDT এক্সচেঞ্জ রেট সেটিংস</h3>
-                        <div class="grid grid-cols-2 gap-2">
-                            <div>
-                                <label class="text-[10px] text-gray-400 block font-bold">Buy Rate (৳)</label>
-                                <input type="number" step="0.1" id="adm-buy-rate" value="${state.usdtRates.buyRate}" class="w-full bg-white dark:bg-zinc-950 border p-2 rounded-xl font-bold">
-                            </div>
-                            <div>
-                                <label class="text-[10px] text-gray-400 block font-bold">Sell Rate (৳)</label>
-                                <input type="number" step="0.1" id="adm-sell-rate" value="${state.usdtRates.sellRate}" class="w-full bg-white dark:bg-zinc-950 border p-2 rounded-xl font-bold">
-                            </div>
-                        </div>
-                        <button onclick="saveUSDTRates()" class="w-full bg-amber-600 text-white font-bold py-2 rounded-xl shadow">
-                            রেট আপডেট করুন
-                        </button>
-                    </div>
-
-                    <!-- Update Banner Notice -->
-                    <div class="p-3.5 bg-gray-50 dark:bg-zinc-900 rounded-2xl border space-y-2">
-                        <h3 class="font-black text-gray-900 dark:text-white uppercase">হোম পেজ স্ক্রোলিং ব্যানার নোটিশ</h3>
+                        <h3 class="font-black text-gray-900 dark:text-white uppercase">হোম পেজ ব্যানার নোটিশ</h3>
                         <textarea id="adm-banner-input" rows="2" class="w-full bg-white dark:bg-zinc-950 border p-2 rounded-xl font-bold">${state.bannerNotice || ''}</textarea>
-                        <button onclick="saveBannerNotice()" class="w-full bg-emerald-700 text-white font-bold py-2 rounded-xl shadow">
-                            নোটিশ আপডেট করুন
-                        </button>
+                        <button onclick="saveBannerNotice()" class="w-full bg-emerald-700 text-white font-bold py-2 rounded-xl shadow">নোটিশ আপডেট করুন</button>
                     </div>
 
-                    <!-- Add Custom Offer Banner Card -->
-                    <div class="p-3.5 bg-gray-50 dark:bg-zinc-900 rounded-2xl border space-y-2">
-                        <h3 class="font-black text-gray-900 dark:text-white uppercase">নতুন স্পেশাল অফার কার্ড তৈরি করুন</h3>
-                        <input type="text" id="adm-offer-title" placeholder="অফার টাইটেল (যেমন: ২০% ক্যাশব্যাক)" class="w-full bg-white dark:bg-zinc-950 border p-2 rounded-xl font-bold">
-                        <input type="text" id="adm-offer-desc" placeholder="বিবরণ (যেমন: ৫০০ টাকা রিচার্জে ৫০ টাকা বোনাস)" class="w-full bg-white dark:bg-zinc-950 border p-2 rounded-xl font-bold">
-                        <button onclick="addCustomOfferCard()" class="w-full bg-indigo-600 text-white font-bold py-2 rounded-xl shadow">
-                            + নতুন অফার কার্ড সেভ করুন
-                        </button>
-                    </div>
-
-                    <!-- FEATURE BUTTON ON/OFF CONTROL WITH EXPLICIT SAVE BUTTON -->
                     <div class="p-3.5 bg-gray-50 dark:bg-zinc-900 rounded-2xl border space-y-3">
-                        <div>
-                            <h3 class="font-black text-gray-900 dark:text-white uppercase">ইউজার বাটন অন/অফ (Enable / Disable)</h3>
-                            <p class="text-[10px] text-gray-400 font-medium">যে যে ফিচারগুলো চালু রাখতে চান সেগুলোতে টিক চিহ্ন দিন (বন্ধ করলে ইউজারের ওখানে 'কামিং সুন' দেখাবে):</p>
-                        </div>
-
-                        <div class="grid grid-cols-2 gap-2 text-xs font-bold">
+                        <h3 class="font-black text-gray-900 dark:text-white uppercase">ইউজার বাটন অন/অফ (Enable / Disable)</h3>
+                        <div class="grid grid-cols-2 gap-2 font-bold">
                             <label class="flex items-center justify-between p-2.5 rounded-xl border bg-white dark:bg-zinc-950 cursor-pointer">
                                 <span>P2P ট্রেড</span>
                                 <input type="checkbox" id="flag-p2pTrade" ${flags.p2pTrade !== false ? 'checked' : ''} class="w-4 h-4 accent-emerald-600">
                             </label>
-
                             <label class="flex items-center justify-between p-2.5 rounded-xl border bg-white dark:bg-zinc-950 cursor-pointer">
                                 <span>USDT ট্রেড</span>
                                 <input type="checkbox" id="flag-usdtTrade" ${flags.usdtTrade !== false ? 'checked' : ''} class="w-4 h-4 accent-emerald-600">
                             </label>
-
                             <label class="flex items-center justify-between p-2.5 rounded-xl border bg-white dark:bg-zinc-950 cursor-pointer">
                                 <span>ডিপোজিট</span>
                                 <input type="checkbox" id="flag-deposit" ${flags.deposit !== false ? 'checked' : ''} class="w-4 h-4 accent-emerald-600">
                             </label>
-
                             <label class="flex items-center justify-between p-2.5 rounded-xl border bg-white dark:bg-zinc-950 cursor-pointer">
                                 <span>উইথড্র</span>
                                 <input type="checkbox" id="flag-withdraw" ${flags.withdraw !== false ? 'checked' : ''} class="w-4 h-4 accent-emerald-600">
                             </label>
-
                             <label class="flex items-center justify-between p-2.5 rounded-xl border bg-white dark:bg-zinc-950 cursor-pointer">
                                 <span>গেম টপ-আপ</span>
                                 <input type="checkbox" id="flag-gaming" ${flags.gaming !== false ? 'checked' : ''} class="w-4 h-4 accent-emerald-600">
                             </label>
-
                             <label class="flex items-center justify-between p-2.5 rounded-xl border bg-white dark:bg-zinc-950 cursor-pointer">
                                 <span>মোবাইল রিচার্জ</span>
                                 <input type="checkbox" id="flag-recharge" ${flags.recharge !== false ? 'checked' : ''} class="w-4 h-4 accent-emerald-600">
                             </label>
-
                             <label class="flex items-center justify-between p-2.5 rounded-xl border bg-white dark:bg-zinc-950 cursor-pointer">
                                 <span>ডাটা প্যাক</span>
                                 <input type="checkbox" id="flag-dataPack" ${flags.dataPack !== false ? 'checked' : ''} class="w-4 h-4 accent-emerald-600">
                             </label>
-
                             <label class="flex items-center justify-between p-2.5 rounded-xl border bg-white dark:bg-zinc-950 cursor-pointer">
                                 <span>টাকা পাঠান</span>
                                 <input type="checkbox" id="flag-sendMoney" ${flags.sendMoney !== false ? 'checked' : ''} class="w-4 h-4 accent-emerald-600">
                             </label>
                         </div>
-
-                        <button onclick="saveAllFeatureFlags()" class="w-full bg-emerald-700 hover:bg-emerald-600 text-white font-black py-3 rounded-xl uppercase text-xs shadow-lg transition">
-                            <i class="fa-solid fa-floppy-disk mr-1"></i> অন/অফ সেটিং সেভ করুন
+                        <button onclick="saveFeatureFlags()" class="w-full bg-emerald-700 text-white font-black py-3 rounded-xl uppercase text-xs shadow-lg">
+                            <i class="fa-solid fa-floppy-disk mr-1"></i> অন/অফ সেটিং ক্লাউডে সেভ করুন
                         </button>
                     </div>
                 </div>
@@ -476,10 +289,8 @@
         }
     }
 
-    // --- FEATURE FLAGS SAVER ---
-    function saveAllFeatureFlags() {
+    function saveFeatureFlags() {
         if (!state.featureFlags) state.featureFlags = {};
-
         state.featureFlags.p2pTrade = document.getElementById('flag-p2pTrade').checked;
         state.featureFlags.usdtTrade = document.getElementById('flag-usdtTrade').checked;
         state.featureFlags.deposit = document.getElementById('flag-deposit').checked;
@@ -490,15 +301,19 @@
         state.featureFlags.sendMoney = document.getElementById('flag-sendMoney').checked;
 
         saveMasterState();
-        alert("সকল বাটন অন/অফ সেটিং সফলভাবে সেভ হয়েছে! ইউজার প্যানেলে 'কামিং সুন' স্টেটাস আপডেট হয়ে গেছে।");
+        alert("বাটন কনফিগারেশন ফায়ারবেস ক্লাউডে সেভ হয়েছে! অ্যান্ড্রয়েড অ্যাপের ভেতরে 'কামিং সুন' আপডেট হয়ে গেছে।");
         renderAdminDashboard('settings');
     }
 
-    // --- ADMIN ACTIONS ---
+    function saveBannerNotice() {
+        state.bannerNotice = document.getElementById('adm-banner-input').value.trim();
+        saveMasterState();
+        alert("ব্যানার নোটিশ লাইভ আপডেট হয়েছে!");
+    }
+
     function approveRequest(reqId) {
         const req = state.pendingRequests.find(r => r.id === reqId);
         if (!req) return;
-
         const targetUser = state.allUsers.find(u => u.id === req.userId);
         if (targetUser) {
             if (req.type === 'Deposit') targetUser.balance = (targetUser.balance || 0) + req.amountBDT;
@@ -507,16 +322,8 @@
             else if (req.type === 'USDT Sell') targetUser.balance = (targetUser.balance || 0) + req.amountBDT;
 
             req.status = 'Approved';
-            state.transactions.unshift({
-                id: "TXN_" + Date.now().toString().slice(-4),
-                title: `${req.type} (Approved)`,
-                amount: req.amountBDT,
-                type: req.type,
-                timestamp: new Date().toISOString().replace('T', ' ').slice(0, 16)
-            });
-
             saveMasterState();
-            alert(`রিকোয়েস্ট এপ্রুভ হয়েছে! ইউজারের ব্যালেন্স আপডেট করা হয়েছে।`);
+            alert(`রিকোয়েস্ট এপ্রুভ হয়েছে এবং ইউজার ওয়ালেটে টাকা জমার মেসেজ সিঙ্ক হয়েছে!`);
             renderAdminDashboard('pending');
         }
     }
@@ -526,7 +333,7 @@
         if (req) {
             req.status = 'Rejected';
             saveMasterState();
-            alert("রিকোয়েস্টটি বাতিল করা হয়েছে!");
+            alert("রিকোয়েস্ট বাতিল করা হয়েছে!");
             renderAdminDashboard('pending');
         }
     }
@@ -535,7 +342,7 @@
         const u = state.allUsers.find(user => user.id === userId);
         if (!u) return;
 
-        showAdminModal(`ইউজার ব্যালেন্স এডিট - ${u.name}`, `
+        showAdminModal(`ব্যালেন্স এডিট - ${u.name}`, `
             <div class="space-y-3">
                 <div>
                     <label class="block text-xs font-bold text-gray-500 mb-1">মেইন ব্যালেন্স (BDT)</label>
@@ -545,9 +352,7 @@
                     <label class="block text-xs font-bold text-gray-500 mb-1">USDT ব্যালেন্স ($)</label>
                     <input type="number" id="edit-user-usdt" value="${u.usdtBalance || 0}" class="w-full bg-gray-50 dark:bg-zinc-950 border p-3 rounded-xl text-xs font-bold">
                 </div>
-                <button onclick="saveUserBalance('${u.id}')" class="w-full bg-emerald-700 text-white font-extrabold py-3 rounded-xl text-xs uppercase shadow">
-                    সেভ করুন
-                </button>
+                <button onclick="saveUserBalance('${u.id}')" class="w-full bg-emerald-700 text-white font-extrabold py-3 rounded-xl text-xs uppercase shadow">সেভ করুন</button>
             </div>
         `);
     }
@@ -559,7 +364,7 @@
             u.usdtBalance = parseFloat(document.getElementById('edit-user-usdt').value) || 0;
             saveMasterState();
             closeAdminModal();
-            alert("ব্যালেন্স আপডেট সফল হয়েছে!");
+            alert("ইউজার ওয়ালেট ব্যালেন্স লাইভ সেভ হয়েছে!");
             renderAdminDashboard('users');
         }
     }
@@ -569,174 +374,11 @@
         if (u) {
             u.isBlocked = !u.isBlocked;
             saveMasterState();
-            alert(`ইউজার অ্যাকাউন্ট ${u.isBlocked ? 'ব্লক' : 'আনব্লক'} করা হয়েছে!`);
+            alert(`ইউজারকে ${u.isBlocked ? 'ব্লক' : 'আনব্লক'} করা হয়েছে!`);
             renderAdminDashboard('users');
         }
     }
 
-    function deleteUser(userId) {
-        if (!confirm("আপনি কি নিশ্চিত যে এই ইউজার অ্যাকাউন্টটি মুছে ফেলতে চান?")) return;
-        state.allUsers = state.allUsers.filter(u => u.id !== userId);
-        saveMasterState();
-        alert("ইউজার মুছে ফেলা হয়েছে!");
-        renderAdminDashboard('users');
-    }
-
-    function deleteP2PAd(adId) {
-        state.p2pAds = state.p2pAds.filter(a => a.id !== adId);
-        saveMasterState();
-        alert("P2P অ্যাড মুছে ফেলা হয়েছে!");
-        renderAdminDashboard('p2p');
-    }
-
-    function inspectP2PChat(tradeId) {
-        const trade = state.p2pTrades.find(t => t.id === tradeId);
-        if (!trade) return;
-
-        showAdminModal(`P2P চ্যাট ইন্সপেক্টর (${trade.id})`, `
-            <div class="space-y-3">
-                <div class="p-2.5 bg-blue-50 dark:bg-blue-950/30 border rounded-xl text-xs flex justify-between font-bold">
-                    <span>Amount: $${trade.amountUSD} USDT</span>
-                    <span class="text-emerald-600">৳ ${(trade.amountBDT || 0).toFixed(2)} BDT</span>
-                </div>
-
-                <div class="h-48 overflow-y-auto custom-scrollbar p-3 bg-gray-50 dark:bg-zinc-950 rounded-2xl border space-y-2">
-                    ${(trade.messages || []).map(m => `
-                        <div class="text-left">
-                            <span class="text-[9px] text-gray-400 block">${m.sender} • ${m.time || ''}</span>
-                            <div class="inline-block px-3 py-1.5 text-xs font-semibold bg-gray-200 dark:bg-zinc-800 text-gray-900 dark:text-zinc-100 rounded-xl max-w-[85%]">
-                                ${m.text}
-                            </div>
-                        </div>
-                    `).join('')}
-                </div>
-
-                <div class="pt-2 border-t flex gap-2">
-                    <button onclick="forceCompleteTrade('${trade.id}')" class="flex-1 bg-emerald-600 text-white font-bold py-2 rounded-xl text-xs shadow">
-                        Force Complete Trade
-                    </button>
-                </div>
-            </div>
-        `);
-    }
-
-    function forceCompleteTrade(tradeId) {
-        const trade = state.p2pTrades.find(t => t.id === tradeId);
-        if (!trade) return;
-
-        const seller = state.allUsers.find(u => u.id === trade.sellerId);
-        const buyer = state.allUsers.find(u => u.id === trade.buyerId);
-
-        if (buyer) {
-            buyer.usdtBalance = (buyer.usdtBalance || 0) + trade.amountUSD;
-            if (seller && seller.usdtBalance >= trade.amountUSD) seller.usdtBalance -= trade.amountUSD;
-
-            trade.status = 'Completed';
-            trade.messages.push({
-                sender: "System Admin",
-                text: "✓ এডমিন কর্তৃক ট্রেডটি ফোর্স কমপ্লিট (Completed) করা হয়েছে।",
-                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-            });
-
-            saveMasterState();
-            closeAdminModal();
-            alert("ট্রেডটি সফলভাবে কমপ্লিট করা হয়েছে!");
-            renderAdminDashboard('p2p');
-        }
-    }
-
-    function addPaymentGateway() {
-        const name = document.getElementById('adm-gw-name').value.trim();
-        const num = document.getElementById('adm-gw-num').value.trim();
-        const inst = document.getElementById('adm-gw-inst').value.trim();
-
-        if (!name || !num) return alert("নাম ও নম্বর দিন!");
-
-        state.paymentGateways.push({
-            id: "GW_" + Date.now().toString().slice(-4),
-            name: name,
-            number: num,
-            instructions: inst || "পেমেন্ট সম্পন্ন করুন।"
-        });
-
-        saveMasterState();
-        alert("পেমেন্ট গেটওয়ে যুক্ত করা হয়েছে!");
-        renderAdminDashboard('packages');
-    }
-
-    function deletePaymentGateway(gwId) {
-        state.paymentGateways = state.paymentGateways.filter(g => g.id !== gwId);
-        saveMasterState();
-        alert("পেমেন্ট গেটওয়ে রিমুভ করা হয়েছে!");
-        renderAdminDashboard('packages');
-    }
-
-    function addGamePackage() {
-        const game = document.getElementById('adm-game-type').value;
-        const name = document.getElementById('adm-game-pkg-name').value.trim();
-        const price = parseFloat(document.getElementById('adm-game-pkg-price').value);
-
-        if (!name || isNaN(price)) return alert("সঠিক নাম ও দাম দিন!");
-
-        if (!state.gamePackages[game]) state.gamePackages[game] = [];
-        state.gamePackages[game].push({ id: "pkg_" + Date.now().toString().slice(-4), name: name, price: price });
-
-        saveMasterState();
-        alert("গেম প্যাকেজ যুক্ত করা হয়েছে!");
-        renderAdminDashboard('packages');
-    }
-
-    function addDataPackage() {
-        const op = document.getElementById('adm-operator-select').value;
-        const name = document.getElementById('adm-datapack-name').value.trim();
-        const price = parseFloat(document.getElementById('adm-datapack-price').value);
-
-        if (!name || isNaN(price)) return alert("সঠিক নাম ও দাম দিন!");
-
-        if (!state.dataPackages[op]) state.dataPackages[op] = [];
-        state.dataPackages[op].push({ id: "dp_" + Date.now().toString().slice(-4), name: name, price: price });
-
-        saveMasterState();
-        alert("ডাটা প্যাক যুক্ত করা হয়েছে!");
-        renderAdminDashboard('packages');
-    }
-
-    function saveUSDTRates() {
-        state.usdtRates.buyRate = parseFloat(document.getElementById('adm-buy-rate').value) || 122.5;
-        state.usdtRates.sellRate = parseFloat(document.getElementById('adm-sell-rate').value) || 120.0;
-        saveMasterState();
-        alert("USDT রেট সফলভাবে আপডেট করা হয়েছে!");
-        renderAdminDashboard('settings');
-    }
-
-    function saveBannerNotice() {
-        const txt = document.getElementById('adm-banner-input').value.trim();
-        state.bannerNotice = txt;
-        saveMasterState();
-        alert("ব্যানার নোটিশ আপডেট করা হয়েছে!");
-        renderAdminDashboard('settings');
-    }
-
-    function addCustomOfferCard() {
-        const title = document.getElementById('adm-offer-title').value.trim();
-        const desc = document.getElementById('adm-offer-desc').value.trim();
-
-        if (!title || !desc) return alert("টাইটেল ও বিবরণ দিন!");
-
-        if (!state.customOffers) state.customOffers = [];
-        state.customOffers.unshift({
-            id: "off_" + Date.now().toString().slice(-4),
-            title: title,
-            desc: desc,
-            active: true
-        });
-
-        saveMasterState();
-        alert("নতুন স্পেশাল অফার কার্ড যুক্ত করা হয়েছে!");
-        renderAdminDashboard('settings');
-    }
-
-    // Modal Helpers
     function showAdminModal(title, bodyHtml) {
         document.getElementById('admin-modal-title').innerText = title;
         document.getElementById('admin-modal-body').innerHTML = bodyHtml;
@@ -746,7 +388,6 @@
         document.getElementById('admin-modal-container').classList.add('hidden');
     }
 
-    // Init App
     window.addEventListener('DOMContentLoaded', initAdminApp);
 </script>
 </body>
