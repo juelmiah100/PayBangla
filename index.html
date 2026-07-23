@@ -64,10 +64,10 @@
 </head>
 <body class="bg-gray-100 dark:bg-zinc-950 text-gray-900 dark:text-zinc-100 min-h-screen transition-colors duration-200 antialiased font-sans flex flex-col justify-center">
 
-<!-- FIXED APP CONTAINER (Prevents Bottom Bar Shifting) -->
+<!-- FIXED CONTAINER (PERMANENT BOTTOM NAV LOCK) -->
 <div class="max-w-md mx-auto h-screen w-full bg-white dark:bg-zinc-900 shadow-2xl flex flex-col justify-between relative overflow-hidden border-x border-gray-200 dark:border-zinc-800">
 
-    <!-- Top Header Bar (Fixed Top) -->
+    <!-- Top Header Bar -->
     <header id="app-header" class="flex-shrink-0 bg-emerald-800 dark:bg-emerald-950 text-white px-4 py-3 flex justify-between items-center z-20 shadow-md">
         <div class="flex items-center gap-2">
             <i class="fa-solid fa-wallet text-xl text-emerald-400"></i>
@@ -83,7 +83,7 @@
         </div>
     </header>
 
-    <!-- App Dynamic Banner / Ticker -->
+    <!-- App Dynamic Ticker Banner -->
     <div id="app-banner-container" class="flex-shrink-0 bg-emerald-900 text-amber-300 text-[11px] font-bold py-1.5 px-3 border-b border-emerald-700/50 flex items-center gap-2">
         <i class="fa-solid fa-bullhorn text-amber-400 animate-pulse"></i>
         <div class="ticker-wrap flex-1">
@@ -91,10 +91,10 @@
         </div>
     </div>
 
-    <!-- Main Dynamic Screen Viewport (Scrollable Content Only) -->
+    <!-- Main Dynamic Screen Viewport (Scrolls Only Middle Content) -->
     <main class="flex-1 overflow-y-auto custom-scrollbar p-4" id="main-content" data-active-screen="dashboard"></main>
 
-    <!-- Bottom Navigation Bar (PERMANENTLY FIXED AT BOTTOM) -->
+    <!-- Bottom Navigation Bar (LOCKED FIX AT BOTTOM) -->
     <nav id="bottom-nav" class="hidden flex-shrink-0 bg-white dark:bg-zinc-900 border-t border-gray-200 dark:border-zinc-800 py-2 flex justify-around items-center text-gray-600 dark:text-zinc-400 z-30 shadow-lg">
         <button onclick="switchScreen('dashboard')" class="flex flex-col items-center gap-0.5 text-emerald-600 dark:text-emerald-400" id="nav-home">
             <i class="fa-solid fa-house text-lg"></i>
@@ -178,6 +178,7 @@
         }
     };
 
+    // Shared Storage Key with Admin Panel
     const STORAGE_KEY = 'paybangla_user_db_v15';
 
     // --- Global Application State ---
@@ -315,7 +316,7 @@
         updateP2PUnreadDot();
     }
 
-    // ADMIN FEATURE TOGGLE CONTROL WITH "COMING SOON / কামিং সুন" MODAL
+    // CHECK ADMIN FEATURE TOGGLE WITH "COMING SOON / কামিং সুন" POPUP
     function checkFeatureFlag(flagKey, serviceName) {
         if (state.featureFlags && state.featureFlags[flagKey] === false) {
             showModal("কামিং সুন (Coming Soon)", `
@@ -325,7 +326,7 @@
                     </div>
                     <h3 class="text-base font-black text-gray-900 dark:text-zinc-100">কামিং সুন! (Coming Soon)</h3>
                     <p class="text-xs text-gray-500 dark:text-zinc-400 font-medium px-4">
-                        <span class="text-emerald-600 dark:text-emerald-400 font-bold">${serviceName}</span> সার্ভিসটি বর্তমানে আপগ্রেড করা হচ্ছে। খুব শীঘ্রই এটি চালু হবে!
+                        <span class="text-emerald-600 dark:text-emerald-400 font-bold">${serviceName}</span> সার্ভিসটি বর্তমানে সিস্টেম আপডেট দেওয়া হচ্ছে। খুব শীঘ্রই চালু হবে!
                     </p>
                     <button onclick="closeModal()" class="w-full bg-emerald-700 text-white font-extrabold py-3 rounded-xl text-xs uppercase shadow">
                         ঠিক আছে
@@ -351,7 +352,7 @@
         }
     }
 
-    // INSTANT APP INITIALIZATION
+    // INSTANT FAST INIT (0ms Render)
     function initApp() {
         loadMasterState();
 
@@ -377,6 +378,7 @@
         applyLanguage();
     }
 
+    // Realtime Sync from Admin Panel Storage
     window.addEventListener('storage', (e) => {
         if (e.key === STORAGE_KEY) {
             loadMasterState();
@@ -387,7 +389,7 @@
         }
     });
 
-    // MOBILE HARDWARE BACK BUTTON HANDLER
+    // Mobile Hardware Back Button Support
     window.onpopstate = function(event) {
         const modal = document.getElementById('modal-container');
         if (modal && !modal.classList.contains('hidden')) {
@@ -427,7 +429,6 @@
         document.documentElement.classList.toggle('dark');
     }
 
-    // High Performance UI Screen Switcher with History Support
     function switchScreen(screenName, pushState = true) {
         if (!state.currentUser) { renderLoginScreen(); return; }
         const mainContent = document.getElementById('main-content');
@@ -460,7 +461,7 @@
         }
     }
 
-    // --- Authentication Engine ---
+    // --- Authentication ---
     function renderLoginScreen() {
         document.getElementById('bottom-nav').classList.add('hidden');
         const mainContent = document.getElementById('main-content');
@@ -526,14 +527,13 @@
         }
     }
 
-    // SUPER FAST INSTANT LOGIN FUNCTION
+    // INSTANT FAST LOGIN (0ms Delay)
     async function loginWithEmail() {
         const email = document.getElementById('login-email').value.trim().toLowerCase();
         const password = document.getElementById('login-password').value;
 
         if (!email || !password) return alert("ইমেইল ও পাসওয়ার্ড প্রবেশ করান।");
 
-        // 1. Check Local DB First for Instant Login (0ms Delay)
         let match = state.allUsers.find(u => u.email.toLowerCase() === email);
 
         if (match) {
@@ -545,7 +545,6 @@
             return;
         }
 
-        // 2. Fallback to Firebase Auth if not in Local Memory
         if (isFirebaseAvailable && auth) {
             try {
                 const cred = await auth.signInWithEmailAndPassword(email, password);
@@ -684,52 +683,52 @@
                 <h3 class="text-xs font-black text-gray-400 dark:text-zinc-500 uppercase tracking-widest mb-3">প্রধান সার্ভিসসমূহ</h3>
                 
                 <div class="grid grid-cols-4 gap-2.5 mb-2.5">
-                    <div onclick="openUSDTModal()" class="grid-btn p-3 bg-amber-50 dark:bg-amber-950/20 rounded-2xl flex flex-col items-center gap-1.5 text-center relative ${flags.usdtTrade === false ? 'opacity-50' : ''}">
-                        ${flags.usdtTrade === false ? `<span class="absolute -top-1.5 bg-red-500 text-white text-[8px] px-1.5 py-0.2 rounded-full font-black">কামিং সুন</span>` : ''}
+                    <div onclick="openUSDTModal()" class="grid-btn p-3 bg-amber-50 dark:bg-amber-950/20 rounded-2xl flex flex-col items-center gap-1.5 text-center relative ${flags.usdtTrade === false ? 'opacity-60' : ''}">
+                        ${flags.usdtTrade === false ? `<span class="absolute -top-1.5 bg-amber-600 text-white text-[8px] px-1.5 py-0.2 rounded-full font-black">কামিং সুন</span>` : ''}
                         <div class="w-10 h-10 bg-amber-500 text-white rounded-xl flex items-center justify-center text-sm font-bold shadow"><i class="fa-solid fa-coins"></i></div>
                         <span class="text-[10px] font-extrabold text-amber-900 dark:text-amber-300">ট্রেড USDT</span>
                     </div>
 
-                    <div onclick="openP2PTradingModal()" class="grid-btn p-3 bg-blue-50 dark:bg-blue-950/20 rounded-2xl flex flex-col items-center gap-1.5 text-center relative ${flags.p2pTrade === false ? 'opacity-50' : ''}">
-                        ${flags.p2pTrade === false ? `<span class="absolute -top-1.5 bg-red-500 text-white text-[8px] px-1.5 py-0.2 rounded-full font-black">কামিং সুন</span>` : ''}
+                    <div onclick="openP2PTradingModal()" class="grid-btn p-3 bg-blue-50 dark:bg-blue-950/20 rounded-2xl flex flex-col items-center gap-1.5 text-center relative ${flags.p2pTrade === false ? 'opacity-60' : ''}">
+                        ${flags.p2pTrade === false ? `<span class="absolute -top-1.5 bg-amber-600 text-white text-[8px] px-1.5 py-0.2 rounded-full font-black">কামিং সুন</span>` : ''}
                         <div class="w-10 h-10 bg-blue-600 text-white rounded-xl flex items-center justify-center font-bold text-sm shadow"><i class="fa-solid fa-users-between-lines"></i></div>
                         <span class="text-[10px] font-extrabold text-blue-900 dark:text-blue-300">P2P ট্রেড</span>
                     </div>
 
-                    <div onclick="openAddMoneyModal()" class="grid-btn p-3 bg-gray-50 dark:bg-zinc-900 rounded-2xl flex flex-col items-center gap-1.5 text-center relative ${flags.deposit === false ? 'opacity-50' : ''}">
-                        ${flags.deposit === false ? `<span class="absolute -top-1.5 bg-red-500 text-white text-[8px] px-1.5 py-0.2 rounded-full font-black">কামিং সুন</span>` : ''}
+                    <div onclick="openAddMoneyModal()" class="grid-btn p-3 bg-gray-50 dark:bg-zinc-900 rounded-2xl flex flex-col items-center gap-1.5 text-center relative ${flags.deposit === false ? 'opacity-60' : ''}">
+                        ${flags.deposit === false ? `<span class="absolute -top-1.5 bg-amber-600 text-white text-[8px] px-1.5 py-0.2 rounded-full font-black">কামিং সুন</span>` : ''}
                         <div class="w-10 h-10 bg-emerald-100 dark:bg-emerald-950 text-emerald-600 rounded-xl flex items-center justify-center font-bold text-sm"><i class="fa-solid fa-plus"></i></div>
                         <span class="text-[10px] font-bold">${t.add_money}</span>
                     </div>
 
-                    <div onclick="openWithdrawModal()" class="grid-btn p-3 bg-gray-50 dark:bg-zinc-900 rounded-2xl flex flex-col items-center gap-1.5 text-center relative ${flags.withdraw === false ? 'opacity-50' : ''}">
-                        ${flags.withdraw === false ? `<span class="absolute -top-1.5 bg-red-500 text-white text-[8px] px-1.5 py-0.2 rounded-full font-black">কামিং সুন</span>` : ''}
+                    <div onclick="openWithdrawModal()" class="grid-btn p-3 bg-gray-50 dark:bg-zinc-900 rounded-2xl flex flex-col items-center gap-1.5 text-center relative ${flags.withdraw === false ? 'opacity-60' : ''}">
+                        ${flags.withdraw === false ? `<span class="absolute -top-1.5 bg-amber-600 text-white text-[8px] px-1.5 py-0.2 rounded-full font-black">কামিং সুন</span>` : ''}
                         <div class="w-10 h-10 bg-amber-100 dark:bg-amber-950 text-amber-600 rounded-xl flex items-center justify-center font-bold text-sm"><i class="fa-solid fa-circle-down"></i></div>
                         <span class="text-[10px] font-bold">${t.withdraw}</span>
                     </div>
                 </div>
 
                 <div class="grid grid-cols-4 gap-2.5">
-                    <div onclick="openGamingStoreModal()" class="grid-btn p-3 bg-gray-50 dark:bg-zinc-900 rounded-2xl flex flex-col items-center gap-1.5 text-center relative ${flags.gaming === false ? 'opacity-50' : ''}">
-                        ${flags.gaming === false ? `<span class="absolute -top-1.5 bg-red-500 text-white text-[8px] px-1.5 py-0.2 rounded-full font-black">কামিং সুন</span>` : ''}
+                    <div onclick="openGamingStoreModal()" class="grid-btn p-3 bg-gray-50 dark:bg-zinc-900 rounded-2xl flex flex-col items-center gap-1.5 text-center relative ${flags.gaming === false ? 'opacity-60' : ''}">
+                        ${flags.gaming === false ? `<span class="absolute -top-1.5 bg-amber-600 text-white text-[8px] px-1.5 py-0.2 rounded-full font-black">কামিং সুন</span>` : ''}
                         <div class="w-10 h-10 bg-orange-100 dark:bg-orange-950 text-orange-600 rounded-xl flex items-center justify-center font-bold text-sm"><i class="fa-solid fa-gamepad"></i></div>
                         <span class="text-[10px] font-bold">${t.gaming_store}</span>
                     </div>
 
-                    <div onclick="openMobileRechargeModal()" class="grid-btn p-3 bg-gray-50 dark:bg-zinc-900 rounded-2xl flex flex-col items-center gap-1.5 text-center relative ${flags.recharge === false ? 'opacity-50' : ''}">
-                        ${flags.recharge === false ? `<span class="absolute -top-1.5 bg-red-500 text-white text-[8px] px-1.5 py-0.2 rounded-full font-black">কামিং সুন</span>` : ''}
+                    <div onclick="openMobileRechargeModal()" class="grid-btn p-3 bg-gray-50 dark:bg-zinc-900 rounded-2xl flex flex-col items-center gap-1.5 text-center relative ${flags.recharge === false ? 'opacity-60' : ''}">
+                        ${flags.recharge === false ? `<span class="absolute -top-1.5 bg-amber-600 text-white text-[8px] px-1.5 py-0.2 rounded-full font-black">কামিং সুন</span>` : ''}
                         <div class="w-10 h-10 bg-purple-100 dark:bg-purple-950 text-purple-600 rounded-xl flex items-center justify-center font-bold text-sm"><i class="fa-solid fa-mobile-screen"></i></div>
                         <span class="text-[10px] font-bold">${t.mobile_recharge}</span>
                     </div>
 
-                    <div onclick="openDataPackModal()" class="grid-btn p-3 bg-gray-50 dark:bg-zinc-900 rounded-2xl flex flex-col items-center gap-1.5 text-center relative ${flags.dataPack === false ? 'opacity-50' : ''}">
-                        ${flags.dataPack === false ? `<span class="absolute -top-1.5 bg-red-500 text-white text-[8px] px-1.5 py-0.2 rounded-full font-black">কামিং সুন</span>` : ''}
+                    <div onclick="openDataPackModal()" class="grid-btn p-3 bg-gray-50 dark:bg-zinc-900 rounded-2xl flex flex-col items-center gap-1.5 text-center relative ${flags.dataPack === false ? 'opacity-60' : ''}">
+                        ${flags.dataPack === false ? `<span class="absolute -top-1.5 bg-amber-600 text-white text-[8px] px-1.5 py-0.2 rounded-full font-black">কামিং সুন</span>` : ''}
                         <div class="w-10 h-10 bg-teal-100 dark:bg-teal-950 text-teal-600 rounded-xl flex items-center justify-center font-bold text-sm"><i class="fa-solid fa-wifi"></i></div>
                         <span class="text-[10px] font-bold">${t.data_pack}</span>
                     </div>
 
-                    <div onclick="openSendMoneyModal()" class="grid-btn p-3 bg-gray-50 dark:bg-zinc-900 rounded-2xl flex flex-col items-center gap-1.5 text-center relative ${flags.sendMoney === false ? 'opacity-50' : ''}">
-                        ${flags.sendMoney === false ? `<span class="absolute -top-1.5 bg-red-500 text-white text-[8px] px-1.5 py-0.2 rounded-full font-black">কামিং সুন</span>` : ''}
+                    <div onclick="openSendMoneyModal()" class="grid-btn p-3 bg-gray-50 dark:bg-zinc-900 rounded-2xl flex flex-col items-center gap-1.5 text-center relative ${flags.sendMoney === false ? 'opacity-60' : ''}">
+                        ${flags.sendMoney === false ? `<span class="absolute -top-1.5 bg-amber-600 text-white text-[8px] px-1.5 py-0.2 rounded-full font-black">কামিং সুন</span>` : ''}
                         <div class="w-10 h-10 bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 rounded-xl flex items-center justify-center font-bold text-sm"><i class="fa-solid fa-paper-plane"></i></div>
                         <span class="text-[10px] font-bold">${t.send_money}</span>
                     </div>
@@ -1771,7 +1770,7 @@
         if (isNaN(amt) || amt <= 0) return alert("সঠিক টাকার পরিমাণ দিন!");
         if (amt > state.userProfile.balance) return alert("আপনার ওয়ালেটে পর্যাপ্ত ব্যালেন্স নেই!");
 
-        // Find recipient by User ID, Phone, or Email
+        // Find recipient in DB by User ID, Phone, or Email
         const recipient = state.allUsers.find(u => 
             u.id.toLowerCase() === target.toLowerCase() || 
             (u.phone && u.phone === target) ||
@@ -1786,11 +1785,11 @@
             return alert("নিজের একাউন্টে সেন্ড মানি করা সম্ভব নয়!");
         }
 
-        // Deduct from Sender & Credit to Recipient
+        // Deduct from Sender & Credit Recipient
         state.userProfile.balance -= amt;
         recipient.balance = (recipient.balance || 0) + amt;
 
-        // Record Transaction for Sender
+        // Record Transaction
         state.transactions.unshift({ 
             id: "TXN_" + Date.now().toString().slice(-4), 
             title: `টাকা পাঠানো হয়েছে (${recipient.name})`, 
