@@ -62,12 +62,13 @@
         .ticker-move { display: inline-block; animation: ticker 25s linear infinite; }
     </style>
 </head>
-<body class="bg-gray-100 dark:bg-zinc-950 text-gray-900 dark:text-zinc-100 min-h-screen transition-colors duration-200 antialiased font-sans">
+<body class="bg-gray-100 dark:bg-zinc-950 text-gray-900 dark:text-zinc-100 min-h-screen transition-colors duration-200 antialiased font-sans flex flex-col justify-center">
 
-<div class="max-w-md mx-auto min-h-screen bg-white dark:bg-zinc-900 shadow-2xl flex flex-col justify-between relative overflow-hidden pb-16 border-x border-gray-200 dark:border-zinc-800">
+<!-- FIXED APP CONTAINER (Prevents Bottom Bar Shifting) -->
+<div class="max-w-md mx-auto h-screen w-full bg-white dark:bg-zinc-900 shadow-2xl flex flex-col justify-between relative overflow-hidden border-x border-gray-200 dark:border-zinc-800">
 
-    <!-- Top Header Bar -->
-    <header id="app-header" class="bg-emerald-800 dark:bg-emerald-950 text-white px-4 py-3 flex justify-between items-center z-20 sticky top-0 shadow-md">
+    <!-- Top Header Bar (Fixed Top) -->
+    <header id="app-header" class="flex-shrink-0 bg-emerald-800 dark:bg-emerald-950 text-white px-4 py-3 flex justify-between items-center z-20 shadow-md">
         <div class="flex items-center gap-2">
             <i class="fa-solid fa-wallet text-xl text-emerald-400"></i>
             <span class="font-black tracking-wider text-lg">PayBangla</span>
@@ -83,18 +84,18 @@
     </header>
 
     <!-- App Dynamic Banner / Ticker -->
-    <div id="app-banner-container" class="bg-emerald-900 text-amber-300 text-[11px] font-bold py-1.5 px-3 border-b border-emerald-700/50 flex items-center gap-2">
+    <div id="app-banner-container" class="flex-shrink-0 bg-emerald-900 text-amber-300 text-[11px] font-bold py-1.5 px-3 border-b border-emerald-700/50 flex items-center gap-2">
         <i class="fa-solid fa-bullhorn text-amber-400 animate-pulse"></i>
         <div class="ticker-wrap flex-1">
             <div id="banner-text" class="ticker-move">🔥 PayBangla ওয়ালেটে স্বাগতম! ইনস্ট্যান্ট P2P ট্রেডিং, ইউএসডিটি বাই-সেল ও গেম টপ-আপ উপভোগ করুন।</div>
         </div>
     </div>
 
-    <!-- Main Dynamic Screen Viewport -->
-    <main class="flex-grow p-4 overflow-y-auto custom-scrollbar" id="main-content" data-active-screen="dashboard"></main>
+    <!-- Main Dynamic Screen Viewport (Scrollable Content Only) -->
+    <main class="flex-1 overflow-y-auto custom-scrollbar p-4" id="main-content" data-active-screen="dashboard"></main>
 
-    <!-- Bottom Navigation Bar -->
-    <nav id="bottom-nav" class="hidden absolute bottom-0 left-0 right-0 bg-white dark:bg-zinc-900 border-t border-gray-200 dark:border-zinc-800 py-2 flex justify-around items-center text-gray-600 dark:text-zinc-400 z-20 shadow-lg">
+    <!-- Bottom Navigation Bar (PERMANENTLY FIXED AT BOTTOM) -->
+    <nav id="bottom-nav" class="hidden flex-shrink-0 bg-white dark:bg-zinc-900 border-t border-gray-200 dark:border-zinc-800 py-2 flex justify-around items-center text-gray-600 dark:text-zinc-400 z-30 shadow-lg">
         <button onclick="switchScreen('dashboard')" class="flex flex-col items-center gap-0.5 text-emerald-600 dark:text-emerald-400" id="nav-home">
             <i class="fa-solid fa-house text-lg"></i>
             <span class="text-[10px] font-bold" data-translate="nav_home">হোম</span>
@@ -314,9 +315,23 @@
         updateP2PUnreadDot();
     }
 
+    // ADMIN FEATURE TOGGLE CONTROL WITH "COMING SOON / কামিং সুন" MODAL
     function checkFeatureFlag(flagKey, serviceName) {
         if (state.featureFlags && state.featureFlags[flagKey] === false) {
-            alert(`দুঃখিত! ${serviceName} সার্ভিসটি এডমিন সাময়িকভাবে বন্ধ রেখেছেন।`);
+            showModal("কামিং সুন (Coming Soon)", `
+                <div class="text-center py-6 space-y-3">
+                    <div class="w-16 h-16 bg-amber-100 dark:bg-amber-950/50 text-amber-600 rounded-full flex items-center justify-center text-3xl mx-auto shadow-inner">
+                        <i class="fa-solid fa-clock-rotate-left animate-spin"></i>
+                    </div>
+                    <h3 class="text-base font-black text-gray-900 dark:text-zinc-100">কামিং সুন! (Coming Soon)</h3>
+                    <p class="text-xs text-gray-500 dark:text-zinc-400 font-medium px-4">
+                        <span class="text-emerald-600 dark:text-emerald-400 font-bold">${serviceName}</span> সার্ভিসটি বর্তমানে আপগ্রেড করা হচ্ছে। খুব শীঘ্রই এটি চালু হবে!
+                    </p>
+                    <button onclick="closeModal()" class="w-full bg-emerald-700 text-white font-extrabold py-3 rounded-xl text-xs uppercase shadow">
+                        ঠিক আছে
+                    </button>
+                </div>
+            `);
             return false;
         }
         return true;
@@ -336,19 +351,17 @@
         }
     }
 
-    // INSTANT FAST INIT (0 Millisecond Render)
+    // INSTANT APP INITIALIZATION
     function initApp() {
         loadMasterState();
 
-        // Immediate Instant UI Render from Local Memory
         if (state.userProfile) {
             state.currentUser = { uid: state.userProfile.id, email: state.userProfile.email };
-            switchScreen('dashboard');
+            switchScreen('dashboard', false);
         } else {
             renderLoginScreen();
         }
 
-        // Non-blocking background firebase sync
         if (isFirebaseAvailable && auth) {
             auth.onAuthStateChanged(async (user) => {
                 if (user) {
@@ -369,10 +382,24 @@
             loadMasterState();
             if (state.currentUser) {
                 const activeScreen = document.getElementById('main-content').getAttribute('data-active-screen') || 'dashboard';
-                switchScreen(activeScreen);
+                switchScreen(activeScreen, false);
             }
         }
     });
+
+    // MOBILE HARDWARE BACK BUTTON HANDLER
+    window.onpopstate = function(event) {
+        const modal = document.getElementById('modal-container');
+        if (modal && !modal.classList.contains('hidden')) {
+            closeModal();
+            return;
+        }
+
+        const activeScreen = document.getElementById('main-content').getAttribute('data-active-screen');
+        if (activeScreen && activeScreen !== 'dashboard') {
+            switchScreen('dashboard', false);
+        }
+    };
 
     function applyLanguage() {
         document.getElementById('lang-btn-text').innerText = state.currentLanguage === 'en' ? 'বাংলা' : 'English';
@@ -390,7 +417,7 @@
         applyLanguage();
         if (state.currentUser) {
             const currentScreen = document.getElementById('main-content').getAttribute('data-active-screen') || 'dashboard';
-            switchScreen(currentScreen);
+            switchScreen(currentScreen, false);
         } else {
             renderLoginScreen();
         }
@@ -400,14 +427,18 @@
         document.documentElement.classList.toggle('dark');
     }
 
-    // High performance UI Screen Switcher
-    function switchScreen(screenName) {
+    // High Performance UI Screen Switcher with History Support
+    function switchScreen(screenName, pushState = true) {
         if (!state.currentUser) { renderLoginScreen(); return; }
         const mainContent = document.getElementById('main-content');
         const bottomNav = document.getElementById('bottom-nav');
         
         mainContent.setAttribute('data-active-screen', screenName);
         bottomNav.classList.remove('hidden');
+
+        if (pushState) {
+            window.history.pushState({ screen: screenName }, "", "#" + screenName);
+        }
 
         document.querySelectorAll('#bottom-nav button').forEach(b => {
             b.classList.remove('text-emerald-600', 'dark:text-emerald-400');
@@ -495,29 +526,51 @@
         }
     }
 
+    // SUPER FAST INSTANT LOGIN FUNCTION
     async function loginWithEmail() {
         const email = document.getElementById('login-email').value.trim().toLowerCase();
         const password = document.getElementById('login-password').value;
 
         if (!email || !password) return alert("ইমেইল ও পাসওয়ার্ড প্রবেশ করান।");
 
-        if (isFirebaseAvailable && auth) {
-            try {
-                await auth.signInWithEmailAndPassword(email, password);
-                return;
-            } catch (err) { console.warn(err.message); }
-        }
+        // 1. Check Local DB First for Instant Login (0ms Delay)
+        let match = state.allUsers.find(u => u.email.toLowerCase() === email);
 
-        const match = state.allUsers.find(u => u.email.toLowerCase() === email);
         if (match) {
             if (match.isBlocked) return alert("আপনার অ্যাকাউন্টটি স্থগিত করা হয়েছে।");
             state.userProfile = match;
             state.currentUser = { uid: match.id, email: match.email };
             saveMasterState();
             switchScreen('dashboard');
-        } else {
-            alert("অ্যাকাউন্ট পাওয়া যায়নি! অনুগ্রহ করে সাইন-আপ করুন।");
+            return;
         }
+
+        // 2. Fallback to Firebase Auth if not in Local Memory
+        if (isFirebaseAvailable && auth) {
+            try {
+                const cred = await auth.signInWithEmailAndPassword(email, password);
+                if (cred.user) {
+                    state.currentUser = cred.user;
+                    state.userProfile = {
+                        id: cred.user.uid,
+                        name: cred.user.displayName || email.split('@')[0],
+                        email: email,
+                        balance: 0,
+                        usdtBalance: 0,
+                        role: "User",
+                        isBlocked: false
+                    };
+                    saveMasterState();
+                    switchScreen('dashboard');
+                    return;
+                }
+            } catch (err) {
+                alert("ভুল ইমেইল বা পাসওয়ার্ড অথবা ইন্টারনেট কানেকশন চেক করুন!");
+                return;
+            }
+        }
+
+        alert("অ্যাকাউন্ট পাওয়া যায়নি! অনুগ্রহ করে নতুন অ্যাকাউন্ট সাইন-আপ করুন।");
     }
 
     async function registerWithEmail() {
@@ -573,6 +626,8 @@
         const balanceText = state.balanceVisibility ? `৳ ${state.userProfile.balance.toFixed(2)}` : "•••••••";
         const usdtText = state.balanceVisibility ? `$ ${state.userProfile.usdtBalance.toFixed(2)}` : "•••••••";
 
+        const flags = state.featureFlags || {};
+
         mainContent.innerHTML = `
             <!-- Top Header Profile -->
             <div class="flex justify-between items-center mb-4">
@@ -624,43 +679,57 @@
                 </div>
             ` : ''}
 
-            <!-- ACTION BUTTONS -->
+            <!-- ACTION BUTTONS GRID WITH COMING SOON OVERLAY SUPPORT -->
             <div class="mb-5">
                 <h3 class="text-xs font-black text-gray-400 dark:text-zinc-500 uppercase tracking-widest mb-3">প্রধান সার্ভিসসমূহ</h3>
                 
                 <div class="grid grid-cols-4 gap-2.5 mb-2.5">
-                    <div onclick="openUSDTModal()" class="grid-btn p-3 bg-amber-50 dark:bg-amber-950/20 rounded-2xl flex flex-col items-center gap-1.5 text-center">
+                    <div onclick="openUSDTModal()" class="grid-btn p-3 bg-amber-50 dark:bg-amber-950/20 rounded-2xl flex flex-col items-center gap-1.5 text-center relative ${flags.usdtTrade === false ? 'opacity-50' : ''}">
+                        ${flags.usdtTrade === false ? `<span class="absolute -top-1.5 bg-red-500 text-white text-[8px] px-1.5 py-0.2 rounded-full font-black">কামিং সুন</span>` : ''}
                         <div class="w-10 h-10 bg-amber-500 text-white rounded-xl flex items-center justify-center text-sm font-bold shadow"><i class="fa-solid fa-coins"></i></div>
                         <span class="text-[10px] font-extrabold text-amber-900 dark:text-amber-300">ট্রেড USDT</span>
                     </div>
-                    <div onclick="openP2PTradingModal()" class="grid-btn p-3 bg-blue-50 dark:bg-blue-950/20 rounded-2xl flex flex-col items-center gap-1.5 text-center relative">
+
+                    <div onclick="openP2PTradingModal()" class="grid-btn p-3 bg-blue-50 dark:bg-blue-950/20 rounded-2xl flex flex-col items-center gap-1.5 text-center relative ${flags.p2pTrade === false ? 'opacity-50' : ''}">
+                        ${flags.p2pTrade === false ? `<span class="absolute -top-1.5 bg-red-500 text-white text-[8px] px-1.5 py-0.2 rounded-full font-black">কামিং সুন</span>` : ''}
                         <div class="w-10 h-10 bg-blue-600 text-white rounded-xl flex items-center justify-center font-bold text-sm shadow"><i class="fa-solid fa-users-between-lines"></i></div>
                         <span class="text-[10px] font-extrabold text-blue-900 dark:text-blue-300">P2P ট্রেড</span>
                     </div>
-                    <div onclick="openAddMoneyModal()" class="grid-btn p-3 bg-gray-50 dark:bg-zinc-900 rounded-2xl flex flex-col items-center gap-1.5 text-center">
+
+                    <div onclick="openAddMoneyModal()" class="grid-btn p-3 bg-gray-50 dark:bg-zinc-900 rounded-2xl flex flex-col items-center gap-1.5 text-center relative ${flags.deposit === false ? 'opacity-50' : ''}">
+                        ${flags.deposit === false ? `<span class="absolute -top-1.5 bg-red-500 text-white text-[8px] px-1.5 py-0.2 rounded-full font-black">কামিং সুন</span>` : ''}
                         <div class="w-10 h-10 bg-emerald-100 dark:bg-emerald-950 text-emerald-600 rounded-xl flex items-center justify-center font-bold text-sm"><i class="fa-solid fa-plus"></i></div>
                         <span class="text-[10px] font-bold">${t.add_money}</span>
                     </div>
-                    <div onclick="openWithdrawModal()" class="grid-btn p-3 bg-gray-50 dark:bg-zinc-900 rounded-2xl flex flex-col items-center gap-1.5 text-center">
+
+                    <div onclick="openWithdrawModal()" class="grid-btn p-3 bg-gray-50 dark:bg-zinc-900 rounded-2xl flex flex-col items-center gap-1.5 text-center relative ${flags.withdraw === false ? 'opacity-50' : ''}">
+                        ${flags.withdraw === false ? `<span class="absolute -top-1.5 bg-red-500 text-white text-[8px] px-1.5 py-0.2 rounded-full font-black">কামিং সুন</span>` : ''}
                         <div class="w-10 h-10 bg-amber-100 dark:bg-amber-950 text-amber-600 rounded-xl flex items-center justify-center font-bold text-sm"><i class="fa-solid fa-circle-down"></i></div>
                         <span class="text-[10px] font-bold">${t.withdraw}</span>
                     </div>
                 </div>
 
                 <div class="grid grid-cols-4 gap-2.5">
-                    <div onclick="openGamingStoreModal()" class="grid-btn p-3 bg-gray-50 dark:bg-zinc-900 rounded-2xl flex flex-col items-center gap-1.5 text-center">
+                    <div onclick="openGamingStoreModal()" class="grid-btn p-3 bg-gray-50 dark:bg-zinc-900 rounded-2xl flex flex-col items-center gap-1.5 text-center relative ${flags.gaming === false ? 'opacity-50' : ''}">
+                        ${flags.gaming === false ? `<span class="absolute -top-1.5 bg-red-500 text-white text-[8px] px-1.5 py-0.2 rounded-full font-black">কামিং সুন</span>` : ''}
                         <div class="w-10 h-10 bg-orange-100 dark:bg-orange-950 text-orange-600 rounded-xl flex items-center justify-center font-bold text-sm"><i class="fa-solid fa-gamepad"></i></div>
                         <span class="text-[10px] font-bold">${t.gaming_store}</span>
                     </div>
-                    <div onclick="openMobileRechargeModal()" class="grid-btn p-3 bg-gray-50 dark:bg-zinc-900 rounded-2xl flex flex-col items-center gap-1.5 text-center">
+
+                    <div onclick="openMobileRechargeModal()" class="grid-btn p-3 bg-gray-50 dark:bg-zinc-900 rounded-2xl flex flex-col items-center gap-1.5 text-center relative ${flags.recharge === false ? 'opacity-50' : ''}">
+                        ${flags.recharge === false ? `<span class="absolute -top-1.5 bg-red-500 text-white text-[8px] px-1.5 py-0.2 rounded-full font-black">কামিং সুন</span>` : ''}
                         <div class="w-10 h-10 bg-purple-100 dark:bg-purple-950 text-purple-600 rounded-xl flex items-center justify-center font-bold text-sm"><i class="fa-solid fa-mobile-screen"></i></div>
                         <span class="text-[10px] font-bold">${t.mobile_recharge}</span>
                     </div>
-                    <div onclick="openDataPackModal()" class="grid-btn p-3 bg-gray-50 dark:bg-zinc-900 rounded-2xl flex flex-col items-center gap-1.5 text-center">
+
+                    <div onclick="openDataPackModal()" class="grid-btn p-3 bg-gray-50 dark:bg-zinc-900 rounded-2xl flex flex-col items-center gap-1.5 text-center relative ${flags.dataPack === false ? 'opacity-50' : ''}">
+                        ${flags.dataPack === false ? `<span class="absolute -top-1.5 bg-red-500 text-white text-[8px] px-1.5 py-0.2 rounded-full font-black">কামিং সুন</span>` : ''}
                         <div class="w-10 h-10 bg-teal-100 dark:bg-teal-950 text-teal-600 rounded-xl flex items-center justify-center font-bold text-sm"><i class="fa-solid fa-wifi"></i></div>
                         <span class="text-[10px] font-bold">${t.data_pack}</span>
                     </div>
-                    <div onclick="openSendMoneyModal()" class="grid-btn p-3 bg-gray-50 dark:bg-zinc-900 rounded-2xl flex flex-col items-center gap-1.5 text-center">
+
+                    <div onclick="openSendMoneyModal()" class="grid-btn p-3 bg-gray-50 dark:bg-zinc-900 rounded-2xl flex flex-col items-center gap-1.5 text-center relative ${flags.sendMoney === false ? 'opacity-50' : ''}">
+                        ${flags.sendMoney === false ? `<span class="absolute -top-1.5 bg-red-500 text-white text-[8px] px-1.5 py-0.2 rounded-full font-black">কামিং সুন</span>` : ''}
                         <div class="w-10 h-10 bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 rounded-xl flex items-center justify-center font-bold text-sm"><i class="fa-solid fa-paper-plane"></i></div>
                         <span class="text-[10px] font-bold">${t.send_money}</span>
                     </div>
@@ -1772,6 +1841,7 @@
         document.getElementById('modal-title').innerText = title;
         document.getElementById('modal-body').innerHTML = bodyHtml;
         document.getElementById('modal-container').classList.remove('hidden');
+        window.history.pushState({ modal: true }, "", "#modal");
     }
     function closeModal() { 
         document.getElementById('modal-container').classList.add('hidden'); 
